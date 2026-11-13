@@ -1,0 +1,68 @@
+/* Estilos globais do Sistema de Gestão de Projetos de Irrigação */
+
+:root {
+    --app-primaria: #0b6e4f;
+    --app-primaria-escura: #08543c;
+    --app-fundo: #f5f8f6;
+}
+
+/* Rodapé sempre no fim da tela, mesmo em página com pouco conteúdo */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--app-fundo);
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+/* Cabeçalho */
+.app-navbar {
+    background-color: var(--app-primaria);
+    border-bottom: 2px solid var(--app-primaria-escura);
+    /* Links mais claros que o padrão do Bootstrap, para dar contraste sobre o verde */
+    --bs-navbar-color: rgba(255, 255, 255, 0.85);
+}
+
+.app-navbar .nav-link.active {
+    font-weight: 600;
+}
+
+/* Títulos de página */
+.page-title {
+    color: var(--app-primaria-escura);
+    font-weight: 700;
+    border-bottom: 2px solid var(--app-primaria);
+    padding-bottom: 10px;
+    margin-bottom: 1rem;
+}
+
+/* Página de erro */
+.error-status {
+    font-size: 5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--app-primaria);
+    margin-bottom: 1rem;
+}
+
+/* Rodapé */
+.app-footer {
+    background-color: #fff;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.875rem;
+}
+
+/* Celular: título menor e itens de menu com área de toque maior */
+@media (max-width: 575.98px) {
+    .page-title {
+        font-size: 1.5rem;
+    }
+
+    .app-navbar .nav-link {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+}

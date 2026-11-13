@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!-- Mensagens vindas de RedirectAttributes.addFlashAttribute("sucesso" | "erro", texto) -->
+    <th:block th:fragment="mensagens">
+        <div th:if="${sucesso}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-circle-check me-2"></i><span th:text="${sucesso}">Operação realizada.</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+        <div th:if="${erro}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-circle-exclamation me-2"></i><span th:text="${erro}">Não foi possível concluir.</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    </th:block>
+</body>
+
+</html>
