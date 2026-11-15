@@ -8,6 +8,9 @@ docs/
 ### Variáveis de ambiente locais (credenciais) ###
 .env
 
+### Fotos enviadas pela aplicação (irrigacao.upload.dir) ###
+uploads/
+
 ### STS ###
 .apt_generated
 .classpath
