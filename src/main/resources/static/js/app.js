@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     marcarMenuAtivo();
+    pedirConfirmacao();
 });
 
 // Destaca no menu o item que corresponde à página aberta.
@@ -20,5 +21,16 @@ function marcarMenuAtivo() {
             link.classList.add('active');
             link.setAttribute('aria-current', 'page');
         }
+    });
+}
+
+// Formulário com data-confirmar="pergunta" só é enviado depois que o usuário confirma.
+function pedirConfirmacao() {
+    document.querySelectorAll('form[data-confirmar]').forEach(function (formulario) {
+        formulario.addEventListener('submit', function (evento) {
+            if (!window.confirm(formulario.getAttribute('data-confirmar'))) {
+                evento.preventDefault();
+            }
+        });
     });
 }

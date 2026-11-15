@@ -1,39 +1,69 @@
 <!DOCTYPE html>
-<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <body>
     <header th:fragment="header">
         <nav class="navbar navbar-expand-lg navbar-dark app-navbar">
             <div class="container">
                 <a class="navbar-brand" th:href="@{/}">
-                    <i class="fas fa-droplet me-2"></i>
-                    <span class="d-none d-md-inline">Sistema de Gestão de Projetos de Irrigação</span>
-                    <span class="d-md-none">Gestão de Irrigação</span>
+                    <i class="fas fa-droplet me-2"></i>Gestão de Irrigação
                 </a>
+
+                <!-- Sem login só aparece a marca: o menu e os dados do usuário dependem da sessão -->
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal"
-                    aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menu">
+                    aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menu"
+                    sec:authorize="isAuthenticated()">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <!-- Itens fixos por enquanto. As rotas e o filtro por perfil entram nas próximas etapas. -->
-                <div class="collapse navbar-collapse" id="menuPrincipal">
-                    <ul class="navbar-nav ms-auto">
+                <div class="collapse navbar-collapse" id="menuPrincipal" sec:authorize="isAuthenticated()">
+                    <!--
+                        Um item por área do sistema, visível para os perfis que o SecurityConfig libera
+                        no prefixo de URL da área (RNF04). O ADMINISTRADOR vê todos.
+                        As áreas com href="#" ganham a rota quando as telas entrarem, nas próximas etapas.
+                    -->
+                    <ul class="navbar-nav me-auto">
                         <li class="nav-item">
                             <a class="nav-link" th:href="@{/}"><i class="fas fa-house me-2"></i>Início</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fas fa-diagram-project me-2"></i>Projetos</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-users me-2"></i>Produtores</a>
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
+                            <a class="nav-link" href="#"><i class="fas fa-handshake me-2"></i>Comercial</a>
                         </li>
-                        <li class="nav-item">
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
+                            <a class="nav-link" href="#"><i class="fas fa-compass-drafting me-2"></i>Engenharia</a>
+                        </li>
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')">
                             <a class="nav-link" href="#"><i class="fas fa-boxes-stacked me-2"></i>Estoque</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-clipboard-list me-2"></i>Ordens de serviço</a>
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')">
+                            <a class="nav-link" href="#"><i class="fas fa-clipboard-list me-2"></i>Campo</a>
+                        </li>
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('FINANCEIRO', 'DIRETORIA', 'ADMINISTRADOR')">
+                            <a class="nav-link" href="#"><i class="fas fa-file-invoice-dollar me-2"></i>Financeiro</a>
+                        </li>
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
+                            <a class="nav-link" href="#"><i class="fas fa-chart-line me-2"></i>Diretoria</a>
+                        </li>
+                        <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
+                            <a class="nav-link" th:href="@{/admin/usuarios}"><i class="fas fa-users-gear me-2"></i>Usuários</a>
                         </li>
                     </ul>
+
+                    <div class="app-usuario">
+                        <span class="navbar-text" th:if="${usuarioAtual != null}">
+                            <i class="fas fa-circle-user me-1"></i>
+                            <span class="app-usuario-nome" th:text="${usuarioAtual.nome}">Nome do usuário</span>
+                            <span class="badge app-usuario-perfil ms-1" th:text="${usuarioAtual.perfil}">Perfil</span>
+                        </span>
+                        <form th:action="@{/logout}" method="post">
+                            <button type="submit" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-right-from-bracket me-1"></i>Sair
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </nav>

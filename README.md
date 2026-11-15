@@ -18,6 +18,18 @@ mvn spring-boot:run
 
 A aplicação abre em http://localhost:8080. Na primeira subida o Hibernate cria as 18 tabelas e a carga inicial cadastra 22 materiais de irrigação. Nas subidas seguintes a carga só insere o material cujo código ainda não existe.
 
+## Login e usuários
+
+Todas as páginas exigem login. Não existe auto-registro: quem cria os usuários é o administrador, em Usuários (`/admin/usuarios`).
+
+Na subida, se ainda não houver nenhum usuário com perfil ADMINISTRADOR, a carga inicial cria o login `admin` com a senha da variável de ambiente `IRRIGACAO_ADMIN_SENHA` (no mínimo 8 caracteres) e avisa no log. Sem a variável o usuário não é criado. Só o perfil `dev` tem senha padrão, `admin123`:
+
+```
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Troque a senha do `admin` em Usuários depois do primeiro acesso. O perfil do usuário define o menu e as áreas que ele acessa; a troca de perfil e a desativação valem a partir do próximo login.
+
 ## Testes
 
 ```

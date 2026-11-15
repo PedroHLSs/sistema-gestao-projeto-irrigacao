@@ -5,20 +5,26 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
+import br.edu.iftm.irrigacao.dominio.acesso.UsuarioService;
 import br.edu.iftm.irrigacao.dominio.estoque.Material;
 import br.edu.iftm.irrigacao.persistencia.MaterialRepository;
+import br.edu.iftm.irrigacao.persistencia.UsuarioRepository;
 
 /**
- * Carga inicial do cadastro de materiais (RF06), para a aplicação já subir com o que orçar.
+ * Carga inicial: o cadastro de materiais (RF06), para a aplicação já subir com o que orçar, e o
+ * primeiro administrador (RF23), para alguém conseguir entrar e criar os outros usuários.
  *
- * <p>É idempotente: só insere o material cujo código ainda não existe, então subir a aplicação
- * de novo não duplica nem altera nada. Fica desligada no perfil {@code test}.
+ * <p>É idempotente: só insere o material cujo código ainda não existe e só cria o administrador
+ * quando não há nenhum, então subir a aplicação de novo não duplica nem altera nada. Fica
+ * desligada no perfil {@code test}.
  */
 @Component
 @Profile("!test")
@@ -26,15 +32,61 @@ public class CargaInicial implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(CargaInicial.class);
 
-    private final MaterialRepository materialRepository;
+    /** Login do administrador criado pela carga inicial. */
+    public static final String LOGIN_ADMINISTRADOR = "admin";
 
-    public CargaInicial(MaterialRepository materialRepository) {
+    private final MaterialRepository materialRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final UsuarioService usuarioService;
+    private final String senhaAdministrador;
+
+    /**
+     * @param senhaAdministrador valor da variável de ambiente {@code IRRIGACAO_ADMIN_SENHA}. Só o
+     *                           perfil {@code dev} tem um valor padrão; fora dele, sem a variável,
+     *                           chega vazio
+     */
+    public CargaInicial(MaterialRepository materialRepository, UsuarioRepository usuarioRepository,
+            UsuarioService usuarioService, @Value("${irrigacao.admin.senha:}") String senhaAdministrador) {
         this.materialRepository = materialRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.usuarioService = usuarioService;
+        this.senhaAdministrador = senhaAdministrador;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        criarAdministradorSeNaoHouver();
+        inserirMateriais();
+    }
+
+    /**
+     * Cria o login "admin" quando não existe nenhum usuário com perfil ADMINISTRADOR (RF23). A
+     * senha vem de fora do código e nunca é escrita no log.
+     */
+    private void criarAdministradorSeNaoHouver() {
+        if (usuarioRepository.existsByPerfil(Perfil.ADMINISTRADOR)) {
+            return;
+        }
+        if (senhaAdministrador == null || senhaAdministrador.length() < UsuarioService.SENHA_TAMANHO_MINIMO) {
+            log.warn("Carga inicial: não há nenhum usuário ADMINISTRADOR e ele NÃO foi criado, porque a "
+                    + "variável de ambiente IRRIGACAO_ADMIN_SENHA está vazia ou tem menos de {} caracteres. "
+                    + "Defina a variável (ou use o perfil dev) e suba a aplicação de novo.",
+                    UsuarioService.SENHA_TAMANHO_MINIMO);
+            return;
+        }
+        if (usuarioRepository.existsByLogin(LOGIN_ADMINISTRADOR)) {
+            log.warn("Carga inicial: não há nenhum usuário ADMINISTRADOR e ele NÃO foi criado, porque o "
+                    + "login \"{}\" já pertence a um usuário de outro perfil.", LOGIN_ADMINISTRADOR);
+            return;
+        }
+        usuarioService.criar("Administrador", LOGIN_ADMINISTRADOR, senhaAdministrador, Perfil.ADMINISTRADOR);
+        log.warn("Carga inicial: criado o usuário \"{}\", com perfil ADMINISTRADOR e a senha de "
+                + "IRRIGACAO_ADMIN_SENHA (no perfil dev, sem a variável, vale a senha padrão de "
+                + "desenvolvimento). Troque a senha em Usuários depois do primeiro acesso.", LOGIN_ADMINISTRADOR);
+    }
+
+    private void inserirMateriais() {
         int inseridos = 0;
         for (Material material : materiais()) {
             if (!materialRepository.existsByCodigo(material.getCodigo())) {

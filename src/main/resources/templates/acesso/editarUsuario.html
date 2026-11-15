@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Editar usuário')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Editar usuário</h1>
+
+        <div class="card shadow-sm form-card mb-4">
+            <div class="card-body p-4">
+                <form th:action="@{/admin/usuarios/{id}(id=${usuario.id})}" th:object="${usuario}" method="post"
+                    novalidate>
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome</label>
+                        <input type="text" class="form-control" th:field="*{nome}" th:errorclass="is-invalid"
+                            maxlength="120">
+                        <div class="invalid-feedback" th:errors="*{nome}">Erro do nome</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="login" class="form-label">Login</label>
+                        <input type="text" class="form-control" th:field="*{login}" th:errorclass="is-invalid"
+                            maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false">
+                        <div class="invalid-feedback" th:errors="*{login}">Erro do login</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="perfil" class="form-label">Perfil</label>
+                        <select class="form-select" th:field="*{perfil}" th:errorclass="is-invalid">
+                            <option value="">Selecione</option>
+                            <option th:each="p : ${perfis}" th:value="${p}" th:text="${p.rotulo}">Perfil</option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{perfil}">Erro do perfil</div>
+                        <div class="form-text">
+                            A troca de perfil vale a partir do próximo login do usuário.
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-floppy-disk me-2"></i>Salvar alterações
+                        </button>
+                        <a th:href="@{/admin/usuarios}" class="btn btn-outline-secondary">Voltar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm form-card">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">Redefinir senha</h2>
+                <form th:action="@{/admin/usuarios/{id}/senha(id=${usuario.id})}" th:object="${senha}" method="post"
+                    novalidate>
+                    <div class="mb-3">
+                        <label for="novaSenha" class="form-label">Nova senha</label>
+                        <input type="password" class="form-control" th:field="*{novaSenha}" th:errorclass="is-invalid"
+                            autocomplete="new-password">
+                        <div class="invalid-feedback" th:errors="*{novaSenha}">Erro da senha</div>
+                        <div class="form-text">No mínimo 8 caracteres. Informe a nova senha ao usuário.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="fas fa-key me-2"></i>Redefinir senha
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

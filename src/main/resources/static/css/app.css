@@ -30,6 +30,64 @@ main {
     font-weight: 600;
 }
 
+/* O administrador vê todas as áreas: se não couberem numa linha, o menu quebra em duas */
+.app-navbar .navbar-nav {
+    flex-wrap: wrap;
+}
+
+/* Nome e perfil do usuário logado, com o botão de sair */
+.app-usuario {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.app-usuario .navbar-text {
+    color: #fff;
+}
+
+.app-usuario-perfil {
+    background-color: var(--app-primaria-escura);
+    font-weight: 500;
+}
+
+/* Botões e links de destaque na cor do sistema */
+.btn-primary {
+    --bs-btn-bg: var(--app-primaria);
+    --bs-btn-border-color: var(--app-primaria);
+    --bs-btn-hover-bg: var(--app-primaria-escura);
+    --bs-btn-hover-border-color: var(--app-primaria-escura);
+    --bs-btn-active-bg: var(--app-primaria-escura);
+    --bs-btn-active-border-color: var(--app-primaria-escura);
+    --bs-btn-disabled-bg: var(--app-primaria);
+    --bs-btn-disabled-border-color: var(--app-primaria);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--app-primaria);
+    --bs-btn-border-color: var(--app-primaria);
+    --bs-btn-hover-bg: var(--app-primaria);
+    --bs-btn-hover-border-color: var(--app-primaria);
+    --bs-btn-active-bg: var(--app-primaria-escura);
+    --bs-btn-active-border-color: var(--app-primaria-escura);
+}
+
+/* Página de login */
+.login-card {
+    max-width: 420px;
+}
+
+.login-icone {
+    font-size: 2.5rem;
+    color: var(--app-primaria);
+}
+
+/* Formulários de cadastro: largura de leitura confortável no computador, tela toda no celular */
+.form-card {
+    max-width: 640px;
+}
+
 /* Títulos de página */
 .page-title {
     color: var(--app-primaria-escura);
@@ -64,5 +122,15 @@ main {
     .app-navbar .nav-link {
         padding-top: 0.75rem;
         padding-bottom: 0.75rem;
+    }
+}
+
+/* Menu recolhido (abaixo de 992px): os dados do usuário vão para o fim da lista, separados por uma linha */
+@media (max-width: 991.98px) {
+    .app-usuario {
+        justify-content: space-between;
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        margin-top: 0.5rem;
+        padding: 0.75rem 0 0.25rem;
     }
 }

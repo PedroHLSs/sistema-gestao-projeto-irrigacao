@@ -1,27 +1,107 @@
 package br.edu.iftm.irrigacao.config;
 
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.ADMINISTRADOR;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.ALMOXARIFE;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.COMPRADOR;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.DIRETORIA;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.FINANCEIRO;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.PROJETISTA;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.TECNICO_CAMPO;
+import static br.edu.iftm.irrigacao.dominio.acesso.Perfil.VENDEDOR;
+
+import java.util.stream.Stream;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
+
 /**
- * Configuração do Spring Security.
+ * Autenticação e autorização por perfil (RNF04).
  *
- * <p>Etapa 1: todas as rotas estão liberadas. O login, os perfis e as regras de acesso por rota
- * entram na etapa 3. A proteção CSRF fica ligada desde já (padrão do Spring Security).
+ * <p>O login é por formulário, em página própria, com a senha conferida em BCrypt. Cada área do
+ * sistema tem um prefixo de URL, liberado para os perfis da tabela abaixo. O ADMINISTRADOR acessa
+ * todas. A authority é o nome do {@link Perfil}.
+ *
+ * <pre>
+ * /projetos/**    qualquer usuário logado
+ * /comercial/**   VENDEDOR, DIRETORIA
+ * /engenharia/**  PROJETISTA
+ * /estoque/**     ALMOXARIFE, COMPRADOR
+ * /campo/**       TECNICO_CAMPO, PROJETISTA
+ * /financeiro/**  FINANCEIRO, DIRETORIA
+ * /diretoria/**   DIRETORIA
+ * /admin/**       ADMINISTRADOR
+ * </pre>
+ *
+ * <p>Só {@code /css/**}, {@code /js/**} e {@code /login} abrem sem login. Não há auto-registro:
+ * quem cria usuário é o administrador (RF23). A proteção CSRF fica ligada, no padrão do Spring
+ * Security.
  */
 @EnableWebSecurity
 @Configuration
 public class SecurityConfig {
 
+    private final UserDetailsService userDetailsService;
+    private final BCryptPasswordEncoder passwordEncoder;
+
+    public SecurityConfig(UserDetailsService userDetailsService, BCryptPasswordEncoder passwordEncoder) {
+        this.userDetailsService = userDetailsService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
+                .requestMatchers("/css/**", "/js/**", "/login").permitAll()
+
+                .requestMatchers("/comercial/**").hasAnyAuthority(comAdministrador(VENDEDOR, DIRETORIA))
+                .requestMatchers("/engenharia/**").hasAnyAuthority(comAdministrador(PROJETISTA))
+                .requestMatchers("/estoque/**").hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR))
+                .requestMatchers("/campo/**").hasAnyAuthority(comAdministrador(TECNICO_CAMPO, PROJETISTA))
+                .requestMatchers("/financeiro/**").hasAnyAuthority(comAdministrador(FINANCEIRO, DIRETORIA))
+                .requestMatchers("/diretoria/**").hasAnyAuthority(comAdministrador(DIRETORIA))
+                .requestMatchers("/admin/**").hasAnyAuthority(comAdministrador())
+
+                .requestMatchers("/projetos/**").authenticated()
+                .anyRequest().authenticated()
+            )
+            .formLogin(form -> form
+                .loginPage("/login")
+                .loginProcessingUrl("/login")
+                .defaultSuccessUrl("/")
+                .failureUrl("/login?error")
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutSuccessUrl("/login?logout")
+                .permitAll()
+            )
+            .exceptionHandling(exception -> exception
+                .accessDeniedPage("/acesso-negado")
             );
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider(userDetailsService);
+        authenticationProvider.setPasswordEncoder(passwordEncoder);
+        return authenticationProvider;
+    }
+
+    /** Authorities dos perfis informados, mais a do ADMINISTRADOR, que acessa tudo. */
+    private static String[] comAdministrador(Perfil... perfis) {
+        return Stream.concat(Stream.of(perfis), Stream.of(ADMINISTRADOR))
+                .map(Perfil::name)
+                .toArray(String[]::new);
     }
 }
