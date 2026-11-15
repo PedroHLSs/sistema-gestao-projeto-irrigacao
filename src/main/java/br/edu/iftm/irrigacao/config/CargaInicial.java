@@ -50,8 +50,7 @@ public class CargaInicial implements ApplicationRunner {
         this.materialRepository = materialRepository;
         this.usuarioRepository = usuarioRepository;
         this.usuarioService = usuarioService;
-        this.senhaAdministrador = senhaAdministrador;
-    }
+        this.senhaAdministrador = senhaAdministrador;}
 
     @Override
     @Transactional
