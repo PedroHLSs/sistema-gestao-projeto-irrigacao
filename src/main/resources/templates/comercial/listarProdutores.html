@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Produtores')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h1 class="page-title mb-0 flex-grow-1">Produtores</h1>
+            <a th:href="@{/comercial/projetos/novo}" class="btn btn-outline-primary">
+                <i class="fas fa-folder-plus me-2"></i>Abrir projeto
+            </a>
+            <a th:href="@{/comercial/produtores/novo}" class="btn btn-primary">
+                <i class="fas fa-user-plus me-2"></i>Novo produtor
+            </a>
+        </div>
+
+        <form th:action="@{/comercial/produtores}" method="get" class="row g-2 mb-3" role="search">
+            <div class="col-12 col-md-8 col-lg-6">
+                <label for="busca" class="visually-hidden">Buscar por nome ou CPF/CNPJ</label>
+                <input type="search" id="busca" name="busca" class="form-control" th:value="${busca}"
+                    placeholder="Nome, CPF ou CNPJ">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-magnifying-glass me-1"></i>Buscar
+                </button>
+                <a th:if="${busca != null and !#strings.isEmpty(busca)}" th:href="@{/comercial/produtores}"
+                    class="btn btn-link">Limpar</a>
+            </div>
+        </form>
+
+        <div class="table-responsive bg-white border rounded shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Nome</th>
+                        <th scope="col">CPF/CNPJ</th>
+                        <th scope="col">Telefone</th>
+                        <th scope="col">E-mail</th>
+                        <th scope="col" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="p : ${produtores}">
+                        <td th:text="${p.nome}">Nome</td>
+                        <td class="text-nowrap"
+                            th:text="${T(br.edu.iftm.irrigacao.dominio.comercial.CpfCnpj).formatar(p.cpfCnpj)}">
+                            000.000.000-00</td>
+                        <td class="text-nowrap" th:text="${p.telefone}">Telefone</td>
+                        <td th:text="${p.email}">E-mail</td>
+                        <td class="text-end text-nowrap">
+                            <a th:href="@{/comercial/produtores/{id}/editar(id=${p.id})}"
+                                class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-pen me-1"></i>Editar e propriedades
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(produtores)}">
+                        <td colspan="5" class="text-center text-muted py-4"
+                            th:text="${busca != null and !#strings.isEmpty(busca)} ? 'Nenhum produtor encontrado para essa busca.' : 'Nenhum produtor cadastrado.'">
+                            Nenhum produtor cadastrado.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

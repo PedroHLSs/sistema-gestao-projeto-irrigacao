@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/head :: head(${projeto.codigo})}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <!-- Cabeçalho do projeto -->
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3 page-title">
+            <h1 class="h2 mb-0 me-2" th:text="${projeto.codigo}">PRJ-2026-0001</h1>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <dl class="row mb-0 dados-projeto">
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <dt>Produtor</dt>
+                        <dd>
+                            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+                            <div class="small text-muted"
+                                th:text="${T(br.edu.iftm.irrigacao.dominio.comercial.CpfCnpj).formatar(projeto.propriedade.produtor.cpfCnpj)}">
+                                000.000.000-00</div>
+                        </dd>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <dt>Propriedade</dt>
+                        <dd>
+                            <span th:text="${projeto.propriedade.nome}">Fazenda</span>
+                            <div class="small text-muted" th:text="${projeto.propriedade.municipio}">Município</div>
+                        </dd>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <dt>Responsável</dt>
+                        <dd th:text="${projeto.responsavel.nome}">Vendedor</dd>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <dt>Abertura</dt>
+                        <dd th:text="${#temporals.format(projeto.dataAbertura, 'dd/MM/yyyy')}">16/11/2026</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Abas das fases do projeto. Cada aba só mostra as ações que a situação atual permite. -->
+            <div class="col-12 col-lg-8">
+                <ul class="nav nav-tabs abas-projeto" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="aba-levantamento-tab" data-bs-toggle="tab"
+                            data-bs-target="#aba-levantamento" type="button" role="tab" aria-controls="aba-levantamento"
+                            aria-selected="true">Levantamento</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="aba-lista-tab" data-bs-toggle="tab" data-bs-target="#aba-lista"
+                            type="button" role="tab" aria-controls="aba-lista" aria-selected="false">Lista técnica</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="aba-proposta-tab" data-bs-toggle="tab" data-bs-target="#aba-proposta"
+                            type="button" role="tab" aria-controls="aba-proposta" aria-selected="false">Proposta</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="aba-execucao-tab" data-bs-toggle="tab" data-bs-target="#aba-execucao"
+                            type="button" role="tab" aria-controls="aba-execucao" aria-selected="false">Execução</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="aba-encerramento-tab" data-bs-toggle="tab"
+                            data-bs-target="#aba-encerramento" type="button" role="tab" aria-controls="aba-encerramento"
+                            aria-selected="false">Encerramento</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content bg-white border border-top-0 rounded-bottom shadow-sm p-3 p-md-4">
+                    <div class="tab-pane fade show active" id="aba-levantamento" role="tabpanel"
+                        aria-labelledby="aba-levantamento-tab">
+                        <h2 class="h5">Visita técnica</h2>
+                        <p th:if="${levantamento == null}" class="text-muted">A visita ainda não foi agendada.</p>
+                        <dl th:if="${levantamento != null}" class="mb-3">
+                            <dt>Agendada para</dt>
+                            <dd th:text="${#strings.capitalize(#temporals.format(levantamento.dataAgendada, 'EEEE, dd/MM/yyyy ''às'' HH:mm'))}">
+                                Sexta-feira, 20/11/2026 às 08:30</dd>
+                            <th:block th:if="${levantamento.dataVisita != null}">
+                                <dt>Realizada em</dt>
+                                <dd th:text="${#temporals.format(levantamento.dataVisita, 'dd/MM/yyyy HH:mm')}">20/11/2026 08:45</dd>
+                            </th:block>
+                        </dl>
+                        <a th:if="${podeAgendarVisita}"
+                            sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')"
+                            th:href="@{/comercial/projetos/{id}/visita(id=${projeto.id})}" class="btn btn-primary">
+                            <i class="fas fa-calendar-plus me-2"></i><span
+                                th:text="${levantamento == null} ? 'Agendar visita' : 'Reagendar visita'">Agendar visita</span>
+                        </a>
+                    </div>
+                    <div class="tab-pane fade" id="aba-lista" role="tabpanel" aria-labelledby="aba-lista-tab">
+                        <p class="text-muted mb-0">Nenhum item na lista técnica.</p>
+                    </div>
+                    <div class="tab-pane fade" id="aba-proposta" role="tabpanel" aria-labelledby="aba-proposta-tab">
+                        <p class="text-muted mb-0">Nenhuma proposta.</p>
+                    </div>
+                    <div class="tab-pane fade" id="aba-execucao" role="tabpanel" aria-labelledby="aba-execucao-tab">
+                        <p class="text-muted mb-0">A execução ainda não começou.</p>
+                    </div>
+                    <div class="tab-pane fade" id="aba-encerramento" role="tabpanel"
+                        aria-labelledby="aba-encerramento-tab">
+                        <p class="text-muted mb-0">O projeto não foi encerrado.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Linha do tempo das situações (RF21) -->
+            <div class="col-12 col-lg-4">
+                <h2 class="h5">Linha do tempo</h2>
+                <ol class="linha-tempo">
+                    <li th:each="h : ${historico}">
+                        <div class="small text-muted" th:text="${#temporals.format(h.dataHora, 'dd/MM/yyyy HH:mm')}">
+                            16/11/2026 09:00</div>
+                        <div th:if="${h.situacaoAnterior == null}">
+                            Projeto aberto em
+                            <span th:replace="~{fragments/situacao :: badge(${h.situacaoNova})}"></span>
+                        </div>
+                        <div th:unless="${h.situacaoAnterior == null}">
+                            <span th:replace="~{fragments/situacao :: badge(${h.situacaoAnterior})}"></span>
+                            <i class="fas fa-arrow-right mx-1 text-muted" aria-label="para"></i>
+                            <span th:replace="~{fragments/situacao :: badge(${h.situacaoNova})}"></span>
+                        </div>
+                        <div class="small" th:if="${h.observacao != null}" th:text="${h.observacao}">Observação</div>
+                        <div class="small text-muted">por <span th:text="${h.usuario != null} ? ${h.usuario.nome} : 'rotina automática'">Usuário</span></div>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

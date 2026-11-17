@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/head :: head('Projetos')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h1 class="page-title mb-0 flex-grow-1">Projetos</h1>
+            <a th:href="@{/projetos/agenda}" class="btn btn-outline-primary">
+                <i class="fas fa-calendar-week me-2"></i>Agenda de visitas
+            </a>
+            <a th:href="@{/comercial/projetos/novo}" class="btn btn-primary"
+                sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
+                <i class="fas fa-folder-plus me-2"></i>Abrir projeto
+            </a>
+        </div>
+
+        <form th:action="@{/projetos}" method="get" class="row g-2 mb-3" role="search">
+            <div class="col-12 col-md-4 col-lg-3">
+                <label for="situacao" class="visually-hidden">Situação</label>
+                <select id="situacao" name="situacao" class="form-select">
+                    <option value="">Todas as situações</option>
+                    <option th:each="s : ${situacoes}" th:value="${s}" th:text="${s.rotulo}"
+                        th:selected="${s == situacao}">Situação</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-5 col-lg-5">
+                <label for="busca" class="visually-hidden">Código ou produtor</label>
+                <input type="search" id="busca" name="busca" class="form-control" th:value="${busca}"
+                    placeholder="Código ou nome do produtor">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-filter me-1"></i>Filtrar
+                </button>
+                <a th:if="${situacao != null or (busca != null and !#strings.isEmpty(busca))}" th:href="@{/projetos}"
+                    class="btn btn-link">Limpar</a>
+            </div>
+        </form>
+
+        <div class="table-responsive bg-white border rounded shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Código</th>
+                        <th scope="col">Produtor</th>
+                        <th scope="col">Propriedade</th>
+                        <th scope="col">Responsável</th>
+                        <th scope="col">Abertura</th>
+                        <th scope="col">Situação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="p : ${projetos}">
+                        <td class="text-nowrap">
+                            <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                        </td>
+                        <td th:text="${p.propriedade.produtor.nome}">Produtor</td>
+                        <td>
+                            <span th:text="${p.propriedade.nome}">Fazenda</span>
+                            <div class="small text-muted" th:text="${p.propriedade.municipio}">Município</div>
+                        </td>
+                        <td th:text="${p.responsavel.nome}">Responsável</td>
+                        <td class="text-nowrap" th:text="${#temporals.format(p.dataAbertura, 'dd/MM/yyyy')}">16/11/2026</td>
+                        <td><span th:replace="~{fragments/situacao :: badge(${p.situacao})}"></span></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(projetos)}">
+                        <td colspan="6" class="text-center text-muted py-4">Nenhum projeto encontrado.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

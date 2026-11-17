@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Abrir projeto')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Abrir projeto</h1>
+        <p class="text-muted form-card">
+            O código, a data de abertura e o responsável são preenchidos pelo sistema. O projeto começa em
+            <span th:replace="~{fragments/situacao :: badge(${situacaoInicial})}"></span>.
+        </p>
+
+        <div th:if="${#lists.isEmpty(produtores)}" class="alert alert-info form-card">
+            Ainda não há produtor cadastrado.
+            <a th:href="@{/comercial/produtores/novo}" class="alert-link">Cadastre o produtor</a> e a propriedade antes
+            de abrir o projeto.
+        </div>
+
+        <div class="card shadow-sm form-card" th:unless="${#lists.isEmpty(produtores)}">
+            <div class="card-body p-4">
+                <form th:action="@{/comercial/projetos}" th:object="${abertura}" method="post" novalidate>
+                    <div class="mb-3">
+                        <label for="produtorId" class="form-label">Produtor</label>
+                        <select class="form-select" th:field="*{produtorId}" th:errorclass="is-invalid">
+                            <option value="">Selecione</option>
+                            <option th:each="p : ${produtores}" th:value="${p.id}"
+                                th:text="|${p.nome} (${T(br.edu.iftm.irrigacao.dominio.comercial.CpfCnpj).formatar(p.cpfCnpj)})|">
+                                Produtor</option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{produtorId}">Erro do produtor</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="propriedadeId" class="form-label">Propriedade</label>
+                        <!-- O app.js mostra só as propriedades do produtor escolhido (data-grupo = id do produtor) -->
+                        <select class="form-select" th:field="*{propriedadeId}" th:errorclass="is-invalid"
+                            data-filtrado-por="produtorId" data-aviso-vazio="semPropriedade">
+                            <option value="">Selecione</option>
+                            <option th:each="pr : ${propriedades}" th:value="${pr.id}"
+                                th:attr="data-grupo=${pr.produtor.id}"
+                                th:text="|${pr.nome} (${pr.municipio}) · ${pr.produtor.nome}|">Propriedade</option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{propriedadeId}">Erro da propriedade</div>
+                        <div id="semPropriedade" class="form-text text-danger" hidden>
+                            Este produtor não tem propriedade cadastrada.
+                            <a href="#" th:href="@{/comercial/produtores}">Cadastre a propriedade</a> antes de abrir o projeto.
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-folder-plus me-2"></i>Abrir projeto
+                        </button>
+                        <a th:href="@{/projetos}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

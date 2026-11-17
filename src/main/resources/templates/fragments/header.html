@@ -27,10 +27,13 @@
                             <a class="nav-link" th:href="@{/}"><i class="fas fa-house me-2"></i>Início</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-diagram-project me-2"></i>Projetos</a>
+                            <a class="nav-link" th:href="@{/projetos}"><i class="fas fa-diagram-project me-2"></i>Projetos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" th:href="@{/projetos/agenda}"><i class="fas fa-calendar-week me-2"></i>Agenda</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" href="#"><i class="fas fa-handshake me-2"></i>Comercial</a>
+                            <a class="nav-link" th:href="@{/comercial/produtores}"><i class="fas fa-handshake me-2"></i>Comercial</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
                             <a class="nav-link" href="#"><i class="fas fa-compass-drafting me-2"></i>Engenharia</a>

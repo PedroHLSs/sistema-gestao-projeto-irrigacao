@@ -302,16 +302,21 @@ class SegurancaIntegrationTest {
     }
 
     /**
-     * A tabela inteira: 8 prefixos por 8 perfis. A página pedida não existe, então quem passa pela
-     * segurança recebe 404 e quem é barrado recebe 403.
+     * A tabela inteira: 8 prefixos por 8 perfis, no próprio prefixo e numa página que não existe.
+     * Quem passa pela segurança recebe a página (200) ou 404, se ela não existe; quem é barrado
+     * recebe 403.
      */
     @ParameterizedTest(name = "{0} com o perfil {1}: liberado = {2}")
     @MethodSource("prefixosEPerfis")
     @DisplayName("Tabela de permissões por prefixo e perfil")
     void testTabelaDePermissoes(String prefixo, Perfil perfil, boolean liberado) throws Exception {
         for (String url : List.of(prefixo, prefixo + "/pagina-que-nao-existe")) {
-            mockMvc.perform(get(url).with(comPerfil(perfil)))
-                    .andExpect(liberado ? status().isNotFound() : status().isForbidden());
+            int status = mockMvc.perform(get(url).with(comPerfil(perfil))).andReturn().getResponse().getStatus();
+            if (liberado) {
+                assertThat(status).as(url).isIn(200, 404);
+            } else {
+                assertThat(status).as(url).isEqualTo(403);
+            }
         }
     }
 

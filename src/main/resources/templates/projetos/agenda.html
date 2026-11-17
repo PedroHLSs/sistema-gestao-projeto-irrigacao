@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Agenda de visitas')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Agenda de visitas</h1>
+
+        <!-- Navegação entre as semanas -->
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <a th:href="@{/projetos/agenda(semana=${agenda.semanaAnterior})}" class="btn btn-outline-primary">
+                <i class="fas fa-chevron-left me-1"></i>Semana anterior
+            </a>
+            <a th:href="@{/projetos/agenda}" class="btn btn-outline-secondary">Esta semana</a>
+            <a th:href="@{/projetos/agenda(semana=${agenda.proximaSemana})}" class="btn btn-outline-primary">
+                Próxima semana<i class="fas fa-chevron-right ms-1"></i>
+            </a>
+            <span class="ms-sm-auto fw-semibold"
+                th:text="|${#temporals.format(agenda.inicio, 'dd/MM')} a ${#temporals.format(agenda.fim, 'dd/MM/yyyy')} · ${agenda.totalDeVisitas} visita(s)|">
+                16/11 a 22/11/2026 · 0 visita(s)</span>
+        </div>
+
+        <div class="agenda-semana">
+            <section th:each="dia : ${agenda.dias}" class="card shadow-sm mb-3 agenda-dia"
+                th:classappend="${dia.hoje} ? 'agenda-hoje'">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h6 mb-0"
+                        th:text="${#strings.capitalize(#temporals.format(dia.data, 'EEEE, dd/MM'))}">Segunda-feira, 16/11</h2>
+                    <span th:if="${dia.hoje}" class="badge text-bg-primary">Hoje</span>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li th:each="v : ${dia.visitas}" class="list-group-item d-flex gap-3 align-items-start">
+                        <span class="agenda-hora" th:text="${#temporals.format(v.dataAgendada, 'HH:mm')}">08:30</span>
+                        <div>
+                            <a th:href="@{/projetos/{id}(id=${v.projeto.id})}" class="fw-semibold"
+                                th:text="${v.projeto.codigo}">PRJ-2026-0001</a>
+                            · <span th:text="${v.projeto.propriedade.produtor.nome}">Produtor</span>
+                            <span th:if="${v.dataVisita != null}" class="badge text-bg-success ms-1">realizada</span>
+                            <div class="small text-muted">
+                                <i class="fas fa-location-dot me-1"></i>
+                                <span th:text="|${v.projeto.propriedade.nome}, ${v.projeto.propriedade.municipio}|">Fazenda, Município</span>
+                            </div>
+                        </div>
+                    </li>
+                    <li th:if="${#lists.isEmpty(dia.visitas)}" class="list-group-item text-muted">Sem visitas.</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

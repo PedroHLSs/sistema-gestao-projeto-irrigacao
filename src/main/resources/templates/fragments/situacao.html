@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!--
+        Situação do projeto como badge colorido. A cor de cada valor fica no app.css, na classe
+        situacao-NOME_DO_VALOR.
+    -->
+    <span th:fragment="badge(situacao)" class="badge badge-situacao"
+        th:classappend="${'situacao-' + situacao.name()}" th:text="${situacao.rotulo}">Em levantamento</span>
+</body>
+
+</html>

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.EnumSet;
 import java.util.List;
 
 import org.hibernate.Hibernate;
@@ -76,14 +77,41 @@ class ProjetoRepositoryTest {
         em.flush();
         em.clear();
 
-        List<Projeto> todos = projetoRepository.listarComPropriedadeEProdutor();
-        List<Projeto> orcando = projetoRepository
-                .listarPorSituacaoComPropriedadeEProdutor(SituacaoProjeto.ORCANDO);
+        List<Projeto> todos = projetoRepository.pesquisar(EnumSet.allOf(SituacaoProjeto.class), "%");
+        List<Projeto> orcando = projetoRepository.pesquisar(EnumSet.of(SituacaoProjeto.ORCANDO), "%");
 
         assertThat(todos).extracting(Projeto::getCodigo).containsExactly("PRJ-0004", "PRJ-0003");
-        assertThat(todos).allSatisfy(
-                p -> assertThat(Hibernate.isInitialized(p.getPropriedade().getProdutor())).isTrue());
+        assertThat(todos).allSatisfy(p -> {
+            assertThat(Hibernate.isInitialized(p.getPropriedade().getProdutor())).isTrue();
+            assertThat(Hibernate.isInitialized(p.getResponsavel())).isTrue();
+        });
         assertThat(orcando).extracting(Projeto::getCodigo).containsExactly("PRJ-0004");
+    }
+
+    @Test
+    void pesquisaPorTrechoDoCodigoOuDoNomeDoProdutor() {
+        DadosTeste.projetoGravado(em, "PRJ-2026-0007");
+        Projeto outro = DadosTeste.projetoGravado(em, "PRJ-2026-0008");
+        outro.getPropriedade().getProdutor().setNome("Maria Aparecida Souza");
+        em.flush();
+        em.clear();
+
+        assertThat(projetoRepository.pesquisar(EnumSet.allOf(SituacaoProjeto.class), "%prj-2026-0007%"))
+                .extracting(Projeto::getCodigo).containsExactly("PRJ-2026-0007");
+        assertThat(projetoRepository.pesquisar(EnumSet.allOf(SituacaoProjeto.class), "%aparecida%"))
+                .extracting(Projeto::getCodigo).containsExactly("PRJ-2026-0008");
+    }
+
+    @Test
+    void ultimoCodigoEOMaiorDoPrefixo() {
+        DadosTeste.projetoGravado(em, "PRJ-2026-0009");
+        DadosTeste.projetoGravado(em, "PRJ-2026-0010");
+        DadosTeste.projetoGravado(em, "PRJ-2027-0001");
+        em.flush();
+
+        assertThat(projetoRepository.ultimoCodigo("PRJ-2026-%")).isEqualTo("PRJ-2026-0010");
+        assertThat(projetoRepository.ultimoCodigo("PRJ-2027-%")).isEqualTo("PRJ-2027-0001");
+        assertThat(projetoRepository.ultimoCodigo("PRJ-2028-%")).isNull();
     }
 
     @Test

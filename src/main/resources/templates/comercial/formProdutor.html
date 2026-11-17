@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Inclusão (produtor.id vazio) e edição do produtor. Na edição aparecem também as propriedades. -->
+<head th:replace="~{fragments/head :: head(${produtor.id == null} ? 'Novo produtor' : 'Produtor')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4" th:with="novo=${produtor.id == null}">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title" th:text="${novo} ? 'Novo produtor' : 'Produtor'">Produtor</h1>
+
+        <div class="card shadow-sm form-card mb-4">
+            <div class="card-body p-4">
+                <form th:action="${novo} ? @{/comercial/produtores} : @{/comercial/produtores/{id}(id=${produtor.id})}"
+                    th:object="${produtor}" method="post" novalidate>
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome</label>
+                        <input type="text" class="form-control" th:field="*{nome}" th:errorclass="is-invalid"
+                            maxlength="120" th:autofocus="${novo}">
+                        <div class="invalid-feedback" th:errors="*{nome}">Erro do nome</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cpfCnpj" class="form-label">CPF ou CNPJ</label>
+                        <input type="text" class="form-control" th:field="*{cpfCnpj}" th:errorclass="is-invalid"
+                            maxlength="18" autocomplete="off" spellcheck="false">
+                        <div class="invalid-feedback" th:errors="*{cpfCnpj}">Erro do CPF/CNPJ</div>
+                        <div class="form-text">Com ou sem pontuação. O sistema confere os dígitos verificadores.</div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-sm-5">
+                            <label for="telefone" class="form-label">Telefone <span class="text-muted">(opcional)</span></label>
+                            <input type="tel" class="form-control" th:field="*{telefone}" th:errorclass="is-invalid"
+                                maxlength="20" placeholder="(34) 99999-0000">
+                            <div class="invalid-feedback" th:errors="*{telefone}">Erro do telefone</div>
+                        </div>
+                        <div class="col-12 col-sm-7">
+                            <label for="email" class="form-label">E-mail <span class="text-muted">(opcional)</span></label>
+                            <input type="email" class="form-control" th:field="*{email}" th:errorclass="is-invalid"
+                                maxlength="120">
+                            <div class="invalid-feedback" th:errors="*{email}">Erro do e-mail</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-floppy-disk me-2"></i><span th:text="${novo} ? 'Cadastrar produtor' : 'Salvar alterações'">Salvar</span>
+                        </button>
+                        <a th:href="@{/comercial/produtores}" class="btn btn-outline-secondary">Voltar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <section th:unless="${novo}" aria-labelledby="titulo-propriedades">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h2 id="titulo-propriedades" class="h4 mb-0">Propriedades</h2>
+                <a th:href="@{/comercial/produtores/{id}/propriedades/nova(id=${produtor.id})}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Nova propriedade
+                </a>
+            </div>
+
+            <div class="table-responsive bg-white border rounded shadow-sm">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Nome</th>
+                            <th scope="col">Município</th>
+                            <th scope="col" class="text-end">Área (ha)</th>
+                            <th scope="col" class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="pr : ${propriedades}">
+                            <td th:text="${pr.nome}">Fazenda</td>
+                            <td th:text="${pr.municipio}">Município</td>
+                            <td class="text-end"
+                                th:text="${pr.areaTotalHa != null} ? ${#numbers.formatDecimal(pr.areaTotalHa, 1, 'POINT', 2, 'COMMA')} : '—'">
+                                42,50</td>
+                            <td class="text-end text-nowrap">
+                                <a th:href="@{/comercial/produtores/{produtorId}/propriedades/{id}/editar(produtorId=${produtor.id},id=${pr.id})}"
+                                    class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-pen me-1"></i>Editar
+                                </a>
+                                <a th:href="@{/comercial/projetos/novo(propriedadeId=${pr.id})}"
+                                    class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-folder-plus me-1"></i>Abrir projeto
+                                </a>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(propriedades)}">
+                            <td colspan="4" class="text-center text-muted py-4">
+                                Nenhuma propriedade cadastrada. O projeto é aberto sobre uma propriedade do produtor.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

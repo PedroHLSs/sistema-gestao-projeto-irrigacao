@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head(${reagendamento} ? 'Reagendar visita' : 'Agendar visita')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title" th:text="${reagendamento} ? 'Reagendar visita técnica' : 'Agendar visita técnica'">
+            Agendar visita técnica</h1>
+
+        <div class="card shadow-sm form-card mb-3">
+            <div class="card-body">
+                <div class="fw-semibold">
+                    <a th:href="@{/projetos/{id}(id=${projeto.id})}" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+                    · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+                </div>
+                <div class="text-muted">
+                    <i class="fas fa-location-dot me-1"></i>
+                    <span th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm form-card">
+            <div class="card-body p-4">
+                <form th:action="@{/comercial/projetos/{id}/visita(id=${projeto.id})}" th:object="${agendamento}"
+                    method="post" novalidate>
+                    <div class="mb-4">
+                        <label for="dataAgendada" class="form-label">Data e hora da visita</label>
+                        <input type="datetime-local" class="form-control form-control-lg" th:field="*{dataAgendada}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{dataAgendada}">Erro da data</div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-calendar-check me-2"></i><span
+                                th:text="${reagendamento} ? 'Reagendar visita' : 'Agendar visita'">Agendar visita</span>
+                        </button>
+                        <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

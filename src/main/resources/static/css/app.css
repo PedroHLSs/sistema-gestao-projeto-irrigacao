@@ -97,6 +97,87 @@ main {
     margin-bottom: 1rem;
 }
 
+/* Situação do projeto (fragments/situacao.html). Texto branco sobre fundos escuros o bastante para contraste AA. */
+.badge-situacao {
+    color: #fff;
+    font-weight: 600;
+    background-color: #6c757d;
+}
+
+.situacao-EM_LEVANTAMENTO { background-color: #0a6e8a; }
+.situacao-ORCANDO { background-color: #4c3fa8; }
+.situacao-AGUARDANDO_RESPOSTA { background-color: #9a5b00; }
+.situacao-PREPARANDO_MATERIAL { background-color: #7a3e9d; }
+.situacao-PROGRAMANDO_EXECUCAO { background-color: #1f5fbf; }
+.situacao-EXECUTANDO_INSTALACAO { background-color: #134a8e; }
+.situacao-VALIDANDO_MEDICAO { background-color: #0f766e; }
+.situacao-CORRIGINDO_INSTALACAO { background-color: #b4400c; }
+.situacao-COLHENDO_ACEITE { background-color: #3f7d20; }
+.situacao-TRATANDO_PENDENCIA { background-color: #b02a37; }
+.situacao-FINALIZANDO_EXECUCAO { background-color: var(--app-primaria); }
+.situacao-ENCERRADO { background-color: #343a40; }
+.situacao-CANCELADO { background-color: #6c757d; text-decoration: line-through; }
+
+/* Página do projeto: rótulos dos dados do cabeçalho */
+.dados-projeto dt {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+.dados-projeto dd {
+    margin-bottom: 0.75rem;
+}
+
+/* Abas do projeto: no celular rolam de lado em vez de quebrar em duas linhas */
+.abas-projeto {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+/* Linha do tempo do histórico do projeto */
+.linha-tempo {
+    list-style: none;
+    padding-left: 1.25rem;
+    margin: 0;
+    border-left: 2px solid #ced4da;
+}
+
+.linha-tempo li {
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.linha-tempo li::before {
+    content: "";
+    position: absolute;
+    left: calc(-1.25rem - 7px);
+    top: 0.3rem;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--app-primaria);
+    border: 2px solid #fff;
+}
+
+/* Agenda de visitas */
+.agenda-hoje {
+    border-color: var(--app-primaria);
+}
+
+.agenda-hoje .card-header {
+    background-color: #e3f1eb;
+}
+
+.agenda-hora {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 3.25rem;
+}
+
 /* Página de erro */
 .error-status {
     font-size: 5rem;
