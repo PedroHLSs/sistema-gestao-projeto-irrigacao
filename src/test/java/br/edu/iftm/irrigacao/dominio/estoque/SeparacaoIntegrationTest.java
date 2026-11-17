@@ -235,18 +235,68 @@ class SeparacaoIntegrationTest {
     }
 
     @Test
-    @DisplayName("Requisitar uma cotação descarta as outras do mesmo item e abre a requisição")
+    @DisplayName("Requisição que cobre o faltante descarta as outras cotações do item")
     void testRequisicaoDescartaAsOutras() {
+        assertThat(cotacaoService.quantidadesAComprar(projetoId).get(gotejadorId)).isEqualByComparingTo("300");
+
         cotacaoService.requisitar(projetoId, agroGotasId);
 
         assertThat(situacao(agroGotasId)).isEqualTo(SituacaoCotacao.REQUISITADA);
         assertThat(situacao(irrigarId)).isEqualTo(SituacaoCotacao.DESCARTADA);
+        assertThat(cotacaoService.quantidadesAComprar(projetoId).get(gotejadorId)).isEqualByComparingTo("0");
         assertThat(cotacaoService.requisicoesAbertas()).extracting(Cotacao::getId).containsExactly(agroGotasId);
         assertThatThrownBy(() -> cotacaoService.requisitar(projetoId, irrigarId))
                 .isInstanceOf(RegraNegocioException.class)
-                .hasMessage("GT-AUT-2L já tem requisição de compra neste projeto.");
+                .hasMessage("A cotação de Irrigar Distribuidora está \"Descartada\" e não pode ser requisitada.");
         // Requisição não mexe no estoque
         assertThat(material(gotejadorId).getSaldo()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    @DisplayName("O mesmo material tem várias requisições enquanto faltar comprar; coberto, a cotação que sobrou é descartada")
+    void testVariasRequisicoesEnquantoFaltar() {
+        // AgroGotas só tem 200 dos 300 que faltam; uma terceira cotação fica de reserva
+        Cotacao agroGotas = cotacaoRepository.findById(agroGotasId).orElseThrow();
+        agroGotas.setQuantidade(new BigDecimal("200"));
+        Long valeId = cotacaoRepository.save(new Cotacao(null, agroGotas.getProjeto(), agroGotas.getMaterial(),
+                "Gotas do Vale", new BigDecimal("0.50"), 20, new BigDecimal("300"), SituacaoCotacao.COTADA)).getId();
+        cotacaoRepository.flush();
+
+        cotacaoService.requisitar(projetoId, agroGotasId);
+
+        assertThat(situacao(irrigarId)).isEqualTo(SituacaoCotacao.COTADA);
+        assertThat(situacao(valeId)).isEqualTo(SituacaoCotacao.COTADA);
+        assertThat(cotacaoService.quantidadesAComprar(projetoId).get(gotejadorId)).isEqualByComparingTo("100");
+
+        cotacaoService.requisitar(projetoId, irrigarId);
+
+        assertThat(situacao(irrigarId)).isEqualTo(SituacaoCotacao.REQUISITADA);
+        assertThat(situacao(valeId)).isEqualTo(SituacaoCotacao.DESCARTADA);
+        assertThat(cotacaoService.requisicoesAbertas()).extracting(Cotacao::getId)
+                .containsExactlyInAnyOrder(agroGotasId, irrigarId);
+
+        // As duas compras chegam: reserva só até as 400 previstas, e o que passou fica disponível
+        cotacaoService.receber(agroGotasId);
+        cotacaoService.receber(irrigarId);
+        Material gotejador = material(gotejadorId);
+        assertThat(gotejador.getSaldo()).isEqualByComparingTo("600");
+        assertThat(gotejador.getSaldoReservado()).isEqualByComparingTo("400");
+        assertThat(separacaoService.podeSeparar(estoqueService.disponibilidade(projetoId).get(0))).isTrue();
+    }
+
+    @Test
+    @DisplayName("Item que a reserva já cobre não tem o que requisitar")
+    void testNadaAComprar() {
+        Material tubo = materialRepository.findById(tuboId).orElseThrow();
+        Long cotacaoTubo = cotacaoRepository.save(new Cotacao(null, projetoRepository.getReferenceById(projetoId), tubo,
+                "Tubos Baratos", new BigDecimal("30.00"), 5, new BigDecimal("20"), SituacaoCotacao.COTADA)).getId();
+
+        assertThat(cotacaoService.quantidadesAComprar(projetoId).get(tuboId)).isEqualByComparingTo("0");
+        assertThatThrownBy(() -> cotacaoService.requisitar(projetoId, cotacaoTubo))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessage("TB-PVC-050 não tem mais nada a comprar: a reserva e as requisições abertas já cobrem "
+                        + "a quantidade prevista.");
+        assertThat(situacao(cotacaoTubo)).isEqualTo(SituacaoCotacao.COTADA);
     }
 
     @Test
@@ -429,12 +479,14 @@ class SeparacaoIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("estoque/separacao"))
                 .andExpect(content().string(containsString("Reservado para o projeto: 100 de 400 un.")))
+                .andExpect(content().string(containsString("A comprar: 300 un")))
                 .andExpect(content().string(containsString("Requisitar")))
                 .andExpect(content().string(containsString("aguardando reserva")));
         mockMvc.perform(post("/estoque/projetos/" + projetoId + "/requisicoes").with(csrf()).with(logado("carlos"))
                         .param("cotacaoId", agroGotasId.toString()))
                 .andExpect(redirectedUrl(separacao))
-                .andExpect(flash().attribute("sucesso", containsString("Requisição de compra de GT-AUT-2L a AgroGotas Ltda")));
+                .andExpect(flash().attribute("sucesso", "Requisição de compra de GT-AUT-2L a AgroGotas Ltda registrada. "
+                        + "O item está coberto e as outras cotações dele foram descartadas."));
 
         // 2. O almoxarife recebe a compra
         mockMvc.perform(get("/estoque/requisicoes").with(logado("almir")))

@@ -30,9 +30,19 @@ public interface CotacaoService {
             BigDecimal quantidade);
 
     /**
-     * Requisição de compra (RF13, G4): a cotação escolhida vai para REQUISITADA e as outras cotações
-     * do mesmo material no projeto, para DESCARTADA. Só com o projeto em PREPARANDO_MATERIAL, para
-     * cotação COTADA de material que ainda não tem requisição.
+     * Quanto ainda falta comprar de cada material do projeto: o faltante da lista técnica menos o
+     * que já está em requisição aberta (REQUISITADA). Nunca negativo.
+     *
+     * @return id do material para a quantidade
+     */
+    Map<Long, BigDecimal> quantidadesAComprar(Long projetoId);
+
+    /**
+     * Requisição de compra (RF13, G4): a cotação escolhida vai para REQUISITADA. O mesmo material
+     * pode ter mais de uma requisição no projeto enquanto faltar comprar (por exemplo, parte de um
+     * fornecedor e parte de outro). Quando as requisições cobrem o faltante, as outras cotações do
+     * item que ainda estavam em COTADA vão para DESCARTADA. Só com o projeto em PREPARANDO_MATERIAL,
+     * para cotação COTADA de material que ainda tem o que comprar.
      */
     Cotacao requisitar(Long projetoId, Long cotacaoId);
 

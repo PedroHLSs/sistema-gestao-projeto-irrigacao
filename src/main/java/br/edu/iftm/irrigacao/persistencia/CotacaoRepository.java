@@ -1,6 +1,5 @@
 package br.edu.iftm.irrigacao.persistencia;
 
-import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,10 +34,6 @@ public interface CotacaoRepository extends JpaRepository<Cotacao, Long> {
 
     /** Cotações de um material no projeto, para descartar as que não foram escolhidas (RF13). */
     List<Cotacao> findByProjetoIdAndMaterialId(Long projetoId, Long materialId);
-
-    /** O material do projeto já tem cotação numa destas situações (RF13). */
-    boolean existsByProjetoIdAndMaterialIdAndSituacaoIn(Long projetoId, Long materialId,
-            Collection<SituacaoCotacao> situacoes);
 
     /** Cotações numa situação, com projeto e material carregados, como as requisições abertas (RF13). */
     @Query("""

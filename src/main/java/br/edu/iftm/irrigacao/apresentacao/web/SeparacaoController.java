@@ -1,5 +1,6 @@
 package br.edu.iftm.irrigacao.apresentacao.web;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -19,6 +20,7 @@ import br.edu.iftm.irrigacao.dominio.estoque.Cotacao;
 import br.edu.iftm.irrigacao.dominio.estoque.CotacaoService;
 import br.edu.iftm.irrigacao.dominio.estoque.DisponibilidadeItem;
 import br.edu.iftm.irrigacao.dominio.estoque.EstoqueService;
+import br.edu.iftm.irrigacao.dominio.estoque.Quantidade;
 import br.edu.iftm.irrigacao.dominio.estoque.ResultadoConferencia;
 import br.edu.iftm.irrigacao.dominio.estoque.ResultadoConferencia.Divergencia;
 import br.edu.iftm.irrigacao.dominio.estoque.SeparacaoService;
@@ -60,6 +62,7 @@ public class SeparacaoController {
         model.addAttribute("projeto", projeto);
         model.addAttribute("itens", itens);
         model.addAttribute("cotacoes", cotacoesPorMaterial);
+        model.addAttribute("aComprar", cotacaoService.quantidadesAComprar(id));
         model.addAttribute("separaveis", itens.stream()
                 .filter(separacaoService::podeSeparar)
                 .map(item -> item.getItem().getId())
@@ -69,12 +72,21 @@ public class SeparacaoController {
         return "estoque/separacao";
     }
 
-    /** G4: o comprador escolhe a cotação do faltante, que vira a requisição de compra (RF13). */
+    /**
+     * G4: o comprador escolhe a cotação do faltante, que vira a requisição de compra (RF13). Se ela
+     * não cobre tudo, as outras cotações do item continuam disponíveis para outra requisição.
+     */
     @PostMapping("/projetos/{id:\\d+}/requisicoes")
     public String requisitar(@PathVariable Long id, @RequestParam Long cotacaoId, RedirectAttributes redirect) {
         Cotacao cotacao = cotacaoService.requisitar(id, cotacaoId);
+        BigDecimal falta = cotacaoService.quantidadesAComprar(id)
+                .getOrDefault(cotacao.getMaterial().getId(), BigDecimal.ZERO);
+        String resto = falta.signum() > 0
+                ? " Ainda faltam comprar " + Quantidade.formatar(falta) + " " + cotacao.getMaterial().getUnidade()
+                        + "; as outras cotações do item continuam disponíveis."
+                : " O item está coberto e as outras cotações dele foram descartadas.";
         redirect.addFlashAttribute("sucesso", "Requisição de compra de " + cotacao.getMaterial().getCodigo()
-                + " a " + cotacao.getFornecedor() + " registrada. As outras cotações do item foram descartadas.");
+                + " a " + cotacao.getFornecedor() + " registrada." + resto);
         return paginaDaSeparacao(id);
     }
 

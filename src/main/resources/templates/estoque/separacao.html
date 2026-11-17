@@ -32,13 +32,17 @@
         <!-- G4: itens ainda não reservados por inteiro e a requisição de compra (RF13) -->
         <th:block th:each="d : ${itens}" th:unless="${separaveis.contains(d.item.id)}">
             <section class="card shadow-sm mb-3"
-                th:with="lista=${cotacoes[d.material.id]},
-                         requisitado=${lista != null and lista.?[situacao.name() == 'REQUISITADA' or situacao.name() == 'RECEBIDA'].size() > 0}">
+                th:with="lista=${cotacoes[d.material.id]}, falta=${aComprar[d.material.id]}, podeRequisitar=${falta != null and falta.signum() > 0}">
                 <div class="card-header">
                     <h2 class="h6 mb-1" th:text="|${d.material.codigo} · ${d.material.descricao}|">GT-AUT-2L · Gotejador</h2>
                     <div class="small text-muted"
                         th:text="|Reservado para o projeto: ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.reservadaParaProjeto)} de ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.prevista)} ${d.material.unidade}. Faltam ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.faltante)} no estoque.|">
                         Reservado 100 de 400 un</div>
+                    <!-- Um item pode ter mais de uma requisição enquanto faltar comprar -->
+                    <div class="small fw-semibold" th:classappend="${podeRequisitar} ? 'text-danger' : 'text-success'"
+                        th:text="${podeRequisitar}
+                            ? |A comprar: ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(falta)} ${d.material.unidade}|
+                            : 'Compra coberta pelas requisições.'">A comprar: 300 un</div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
@@ -60,10 +64,10 @@
                                     th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(c.quantidade)}">300</td>
                                 <td th:text="${c.situacao.rotulo}">Cotada</td>
                                 <td class="text-end">
-                                    <form th:if="${emPreparacao and !requisitado and c.situacao.name() == 'COTADA'}"
+                                    <form th:if="${emPreparacao and podeRequisitar and c.situacao.name() == 'COTADA'}"
                                         sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')"
                                         th:action="@{/estoque/projetos/{id}/requisicoes(id=${projeto.id})}" method="post"
-                                        th:attr="data-confirmar=|Requisitar a compra a ${c.fornecedor}? As outras cotações deste item serão descartadas.|">
+                                        th:attr="data-confirmar=|Requisitar a compra a ${c.fornecedor}? Se ela cobrir o que falta, as outras cotações deste item serão descartadas.|">
                                         <input type="hidden" name="cotacaoId" th:value="${c.id}">
                                         <button type="submit" class="btn btn-sm btn-primary">Requisitar</button>
                                     </form>

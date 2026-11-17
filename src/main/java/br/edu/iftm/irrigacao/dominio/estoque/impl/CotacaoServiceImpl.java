@@ -1,7 +1,7 @@
 package br.edu.iftm.irrigacao.dominio.estoque.impl;
 
 import java.math.BigDecimal;
-import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +86,25 @@ public class CotacaoServiceImpl implements CotacaoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Map<Long, BigDecimal> quantidadesAComprar(Long projetoId) {
+        Map<Long, BigDecimal> emRequisicao = new HashMap<>();
+        for (Cotacao cotacao : cotacaoRepository.listarPorProjetoComMaterial(projetoId)) {
+            if (cotacao.getSituacao() == SituacaoCotacao.REQUISITADA) {
+                emRequisicao.merge(cotacao.getMaterial().getId(), cotacao.getQuantidade(), BigDecimal::add);
+            }
+        }
+        Map<Long, BigDecimal> aComprar = new LinkedHashMap<>();
+        for (DisponibilidadeItem item : estoqueService.disponibilidade(projetoId)) {
+            Long materialId = item.getMaterial().getId();
+            aComprar.put(materialId, item.getFaltante()
+                    .subtract(emRequisicao.getOrDefault(materialId, BigDecimal.ZERO))
+                    .max(BigDecimal.ZERO));
+        }
+        return aComprar;
+    }
+
+    @Override
     @Transactional
     public Cotacao requisitar(Long projetoId, Long cotacaoId) {
         Projeto projeto = buscarProjeto(projetoId);
@@ -94,18 +113,24 @@ public class CotacaoServiceImpl implements CotacaoService {
         if (!escolhida.getProjeto().getId().equals(projetoId)) {
             throw new RegistroNaoEncontradoException("Cotação não encontrada.");
         }
-        Long materialId = escolhida.getMaterial().getId();
-        if (cotacaoRepository.existsByProjetoIdAndMaterialIdAndSituacaoIn(projetoId, materialId,
-                EnumSet.of(SituacaoCotacao.REQUISITADA, SituacaoCotacao.RECEBIDA))) {
-            throw new RegraNegocioException(escolhida.getMaterial().getCodigo()
-                    + " já tem requisição de compra neste projeto.");
-        }
         if (escolhida.getSituacao() != SituacaoCotacao.COTADA) {
             throw new RegraNegocioException("A cotação de " + escolhida.getFornecedor() + " está \""
                     + escolhida.getSituacao().getRotulo() + "\" e não pode ser requisitada.");
         }
-        for (Cotacao cotacao : cotacaoRepository.findByProjetoIdAndMaterialId(projetoId, materialId)) {
-            cotacao.setSituacao(cotacao.getId().equals(cotacaoId) ? SituacaoCotacao.REQUISITADA : SituacaoCotacao.DESCARTADA);
+        Long materialId = escolhida.getMaterial().getId();
+        BigDecimal aComprar = quantidadesAComprar(projetoId).getOrDefault(materialId, BigDecimal.ZERO);
+        if (aComprar.signum() <= 0) {
+            throw new RegraNegocioException(escolhida.getMaterial().getCodigo() + " não tem mais nada a comprar: "
+                    + "a reserva e as requisições abertas já cobrem a quantidade prevista.");
+        }
+        escolhida.setSituacao(SituacaoCotacao.REQUISITADA);
+        if (escolhida.getQuantidade().compareTo(aComprar) >= 0) {
+            // Item coberto: as cotações que ninguém escolheu não servem mais
+            for (Cotacao outra : cotacaoRepository.findByProjetoIdAndMaterialId(projetoId, materialId)) {
+                if (outra.getSituacao() == SituacaoCotacao.COTADA) {
+                    outra.setSituacao(SituacaoCotacao.DESCARTADA);
+                }
+            }
         }
         return escolhida;
     }
