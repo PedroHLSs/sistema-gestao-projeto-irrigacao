@@ -23,6 +23,7 @@ import br.edu.iftm.irrigacao.dominio.estoque.DisponibilidadeItem;
 import br.edu.iftm.irrigacao.dominio.estoque.EstoqueService;
 import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
 import br.edu.iftm.irrigacao.dominio.estoque.ListaTecnicaService;
+import br.edu.iftm.irrigacao.dominio.execucao.MedicaoService;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoArmazenada;
 import br.edu.iftm.irrigacao.dominio.projeto.Levantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.LevantamentoService;
@@ -48,14 +49,19 @@ public class ProjetoController {
     private final ListaTecnicaService listaTecnicaService;
     private final PropostaService propostaService;
     private final EstoqueService estoqueService;
+    private final MedicaoService medicaoService;
+    private final PainelExecucao painelExecucao;
 
     public ProjetoController(ProjetoService projetoService, LevantamentoService levantamentoService,
-            ListaTecnicaService listaTecnicaService, PropostaService propostaService, EstoqueService estoqueService) {
+            ListaTecnicaService listaTecnicaService, PropostaService propostaService, EstoqueService estoqueService,
+            MedicaoService medicaoService, PainelExecucao painelExecucao) {
         this.projetoService = projetoService;
         this.levantamentoService = levantamentoService;
         this.listaTecnicaService = listaTecnicaService;
         this.propostaService = propostaService;
         this.estoqueService = estoqueService;
+        this.medicaoService = medicaoService;
+        this.painelExecucao = painelExecucao;
     }
 
     /**
@@ -97,7 +103,15 @@ public class ProjetoController {
         model.addAttribute("propostas", propostaService.listarDoProjeto(id));
         model.addAttribute("orcando", orcando);
         model.addAttribute("podeGerarOrcamento", orcando && propostaService.abertaDoProjeto(id).isEmpty());
+        // Aba Execução (RF15 a RF19)
+        painelExecucao.preencher(model, projeto);
         return "projetos/detalheProjeto";
+    }
+
+    /** Foto da medição (RF17), procurada pelo caminho gravado na medição daquele projeto. */
+    @GetMapping("/{id:\\d+}/medicoes/{medicaoId:\\d+}/foto")
+    public ResponseEntity<Resource> fotoDaMedicao(@PathVariable Long id, @PathVariable Long medicaoId) {
+        return servir(medicaoService.foto(id, medicaoId));
     }
 
     /**
@@ -107,7 +121,10 @@ public class ProjetoController {
      */
     @GetMapping("/{id:\\d+}/levantamento/fotos/{indice:\\d+}")
     public ResponseEntity<Resource> foto(@PathVariable Long id, @PathVariable int indice) {
-        FotoArmazenada foto = levantamentoService.foto(id, indice);
+        return servir(levantamentoService.foto(id, indice));
+    }
+
+    private static ResponseEntity<Resource> servir(FotoArmazenada foto) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(foto.tipo().getTipoConteudo()))
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())

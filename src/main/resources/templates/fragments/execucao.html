@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!-- Medições do projeto com resultado e desvio de cada valor (RF17), na ordem e na página do projeto -->
+    <th:block th:fragment="medicoes(lista, projetoId)">
+        <p th:if="${#lists.isEmpty(lista)}" class="text-muted">Nenhuma medição registrada.</p>
+        <ul th:unless="${#lists.isEmpty(lista)}" class="list-group mb-3">
+            <li th:each="m : ${lista}" class="list-group-item">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <span class="small text-muted"
+                        th:text="${#temporals.format(m.medicao.dataHora, 'dd/MM/yyyy HH:mm')}">16/11/2026 10:00</span>
+                    <span th:if="${m.medicao.aprovada}" class="badge text-bg-success">Dentro do parâmetro</span>
+                    <span th:unless="${m.medicao.aprovada}" class="badge text-bg-danger">Fora do parâmetro</span>
+                </div>
+                <div class="mt-1">
+                    Pressão <strong th:text="|${#numbers.formatDecimal(m.medicao.pressaoMedidaMca, 1, 'POINT', 2, 'COMMA')} mca|">30,60 mca</strong>
+                    <span th:if="${m.desvioPressao != null}" class="small text-muted"
+                        th:text="|(${m.desvioPressao.signum() > 0 ? '+' : ''}${#numbers.formatDecimal(m.desvioPressao, 1, 'POINT', 2, 'COMMA')}%)|">(+2,00%)</span>
+                    · Vazão <strong th:text="|${#numbers.formatDecimal(m.medicao.vazaoMedidaM3h, 1, 'POINT', 2, 'COMMA')} m³/h|">6,00 m³/h</strong>
+                    <span th:if="${m.desvioVazao != null}" class="small text-muted"
+                        th:text="|(${m.desvioVazao.signum() > 0 ? '+' : ''}${#numbers.formatDecimal(m.desvioVazao, 1, 'POINT', 2, 'COMMA')}%)|">(0,00%)</span>
+                </div>
+                <div class="small text-muted">
+                    <span th:if="${m.medicao.usuario != null}" th:text="|por ${m.medicao.usuario.nome}|">por Técnico</span>
+                    <span th:if="${m.medicao.latitude != null and m.medicao.longitude != null}"
+                        th:text="|· ${#numbers.formatDecimal(m.medicao.latitude, 1, 'POINT', 6, 'POINT')}, ${#numbers.formatDecimal(m.medicao.longitude, 1, 'POINT', 6, 'POINT')}|">· -18.9, -48.2</span>
+                    <a th:if="${m.medicao.foto != null}" target="_blank" rel="noopener"
+                        th:href="@{/projetos/{id}/medicoes/{m}/foto(id=${projetoId},m=${m.medicao.id})}">· ver foto</a>
+                </div>
+            </li>
+        </ul>
+    </th:block>
+</body>
+
+</html>

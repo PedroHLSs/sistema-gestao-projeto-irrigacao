@@ -32,6 +32,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.edu.iftm.irrigacao.dominio.RegraNegocioException;
+import br.edu.iftm.irrigacao.dominio.projeto.ArmazenamentoDeFotos;
 import br.edu.iftm.irrigacao.dominio.projeto.DadosLevantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoEnviada;
 import br.edu.iftm.irrigacao.dominio.projeto.Levantamento;
@@ -68,7 +69,7 @@ class LevantamentoCampoServiceTest {
     void criarService() {
         ZoneId zona = ZoneId.systemDefault();
         service = new LevantamentoServiceImpl(levantamentoRepository, projetoRepository,
-                Clock.fixed(LocalDateTime.of(2026, 11, 16, 9, 0).atZone(zona).toInstant(), zona), uploads.toString());
+                Clock.fixed(LocalDateTime.of(2026, 11, 16, 9, 0).atZone(zona).toInstant(), zona), new ArmazenamentoDeFotos(uploads.toString()));
     }
 
     private static Levantamento completo() {

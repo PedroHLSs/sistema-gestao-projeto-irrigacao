@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!--
+    Ordem de serviço em campo (RF15 a RF18, RNF06). Só aparece o passo da situação do projeto
+    (Figura 5): apontar e concluir a instalação, medir, registrar a correção, colher o aceite ou
+    tratar a pendência. As medições ficam sempre no fim da tela.
+-->
+<head th:replace="~{fragments/head :: head(|OS ${ordem.numero}|)}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-3 tela-campo">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+            <h1 class="page-title mb-0" th:text="|OS ${ordem.numero}|">OS 1</h1>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </div>
+        <p class="mb-3">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span><br>
+            <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span><br>
+            <i class="fas fa-calendar-day me-1"></i><span th:text="${#temporals.format(ordem.dataProgramada, 'dd/MM/yyyy')}">16/11/2026</span>
+            · <span th:text="${#strings.listJoin(ordem.tecnicos.![nome], ', ')}">Técnicos</span>
+        </p>
+
+        <div th:if="${ordem.dataConclusao != null}" class="alert alert-success" role="status">
+            Ordem concluída em <span th:text="${#temporals.format(ordem.dataConclusao, 'dd/MM/yyyy')}">16/11/2026</span>.
+        </div>
+
+        <!-- ========== Instalação: apontamentos e conclusão (RF16) ========== -->
+        <th:block th:if="${executando}">
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Apontar horas</h2>
+                    <form th:action="@{/campo/ordens/{id}/horas(id=${ordem.id})}" th:object="${horasForm}" method="post" novalidate>
+                        <label for="horas" class="form-label">Horas trabalhadas</label>
+                        <div class="input-group input-group-lg has-validation">
+                            <input type="number" step="0.01" min="0" inputmode="decimal" class="form-control"
+                                th:field="*{horas}" th:errorclass="is-invalid" placeholder="8">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Apontar</button>
+                            <div class="invalid-feedback" th:errors="*{horas}">Erro das horas</div>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Apontar material</h2>
+                    <p th:if="${#lists.isEmpty(itens)}" class="text-muted mb-0">O projeto não tem lista técnica.</p>
+                    <form th:unless="${#lists.isEmpty(itens)}" th:action="@{/campo/ordens/{id}/materiais(id=${ordem.id})}"
+                        th:object="${materialForm}" method="post" novalidate>
+                        <div class="mb-3">
+                            <label for="materialId" class="form-label">Material da lista técnica</label>
+                            <select class="form-select form-select-lg" th:field="*{materialId}" th:errorclass="is-invalid">
+                                <option value="">Selecione</option>
+                                <option th:each="i : ${itens}" th:value="${i.material.id}"
+                                    th:text="|${i.material.codigo} · ${i.material.descricao} (separado ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadeSeparada)}, apontado ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadeApontada)} ${i.material.unidade})|">
+                                    TB-PVC-050 · Tubo</option>
+                            </select>
+                            <div class="invalid-feedback" th:errors="*{materialId}">Erro do material</div>
+                        </div>
+                        <label for="quantidade" class="form-label">Quantidade usada</label>
+                        <div class="input-group input-group-lg has-validation">
+                            <input type="number" step="any" min="0" inputmode="decimal" class="form-control"
+                                th:field="*{quantidade}" th:errorclass="is-invalid">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Apontar</button>
+                            <div class="invalid-feedback" th:errors="*{quantidade}">Erro da quantidade</div>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Lançamentos da ordem</h2>
+                    <p th:if="${#lists.isEmpty(lancamentos)}" class="text-muted">Nenhum lançamento ainda.</p>
+                    <ul th:unless="${#lists.isEmpty(lancamentos)}" class="list-group mb-3">
+                        <li th:each="l : ${lancamentos}" class="list-group-item">
+                            <i class="fas me-2" th:classappend="${l.horas} ? 'fa-clock' : 'fa-box'"></i>
+                            <span th:text="${l.descricao}">8 h</span>
+                            <div class="small text-muted">
+                                <span th:text="${#temporals.format(l.dataHora, 'dd/MM HH:mm')}">16/11 10:00</span>
+                                <span th:if="${l.autor != null}" th:text="|· ${l.autor}|">· Técnico</span>
+                            </div>
+                        </li>
+                    </ul>
+                    <form th:unless="${#lists.isEmpty(lancamentos)}"
+                        th:action="@{/campo/ordens/{id}/apontamentos/ultimo/exclusao(id=${ordem.id})}" method="post"
+                        th:attr="data-confirmar=|Excluir o último lançamento (${lancamentos[#lists.size(lancamentos) - 1].descricao})?|">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-rotate-left me-2"></i>Excluir último lançamento
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <form th:action="@{/campo/ordens/{id}/conclusao(id=${ordem.id})}" method="post" class="d-grid mb-4"
+                data-confirmar="Concluir a instalação? Depois disso vem a medição de pressão e vazão.">
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-flag-checkered me-2"></i>Concluir instalação
+                </button>
+            </form>
+        </th:block>
+
+        <!-- ========== Medição (RF17, G6) ========== -->
+        <section th:if="${validando}" class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h2 class="h5">Medir pressão e vazão</h2>
+                <dl th:if="${faixa != null}" class="row faixa-medicao mb-3">
+                    <div class="col-6">
+                        <dt class="small text-muted fw-normal">Pressão aceita</dt>
+                        <dd th:text="|${#numbers.formatDecimal(faixa.pressaoMinima, 1, 'POINT', 2, 'COMMA')} a ${#numbers.formatDecimal(faixa.pressaoMaxima, 1, 'POINT', 2, 'COMMA')} mca|">29,40 a 30,60 mca</dd>
+                    </div>
+                    <div class="col-6">
+                        <dt class="small text-muted fw-normal">Vazão aceita</dt>
+                        <dd th:text="|${#numbers.formatDecimal(faixa.vazaoMinima, 1, 'POINT', 2, 'COMMA')} a ${#numbers.formatDecimal(faixa.vazaoMaxima, 1, 'POINT', 2, 'COMMA')} m³/h|">5,88 a 6,12 m³/h</dd>
+                    </div>
+                    <div class="col-12 small text-muted"
+                        th:text="|Projeto: ${#numbers.formatDecimal(projeto.pressaoProjetoMca, 1, 'POINT', 2, 'COMMA')} mca e ${#numbers.formatDecimal(projeto.vazaoProjetoM3h, 1, 'POINT', 2, 'COMMA')} m³/h, tolerância de ${#numbers.formatDecimal(faixa.toleranciaPercentual, 1, 'POINT', 1, 'COMMA')}%.|">
+                        Projeto: 30 mca e 6 m³/h, tolerância de 2%.</div>
+                </dl>
+                <form th:action="@{/campo/ordens/{id}/medicoes(id=${ordem.id})}" th:object="${medicaoForm}" method="post"
+                    enctype="multipart/form-data" novalidate>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="pressaoMedidaMca" class="form-label">Pressão (mca)</label>
+                            <input type="number" step="any" min="0" inputmode="decimal" class="form-control form-control-lg"
+                                th:field="*{pressaoMedidaMca}" th:errorclass="is-invalid">
+                            <div class="invalid-feedback" th:errors="*{pressaoMedidaMca}">Erro da pressão</div>
+                        </div>
+                        <div class="col-6">
+                            <label for="vazaoMedidaM3h" class="form-label">Vazão (m³/h)</label>
+                            <input type="number" step="any" min="0" inputmode="decimal" class="form-control form-control-lg"
+                                th:field="*{vazaoMedidaM3h}" th:errorclass="is-invalid">
+                            <div class="invalid-feedback" th:errors="*{vazaoMedidaM3h}">Erro da vazão</div>
+                        </div>
+                    </div>
+
+                    <fieldset class="mb-3">
+                        <legend class="form-label fs-6">Coordenada</legend>
+                        <button type="button" class="btn btn-outline-primary btn-lg w-100 mb-2" data-localizacao
+                            data-latitude="latitude" data-longitude="longitude" data-aviso="avisoLocalizacao">
+                            <i class="fas fa-location-crosshairs me-2"></i>Usar minha localização
+                        </button>
+                        <div id="avisoLocalizacao" class="form-text mb-2" role="status"></div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label for="latitude" class="form-label small">Latitude</label>
+                                <input type="number" step="any" inputmode="decimal" class="form-control form-control-lg"
+                                    th:field="*{latitude}" th:errorclass="is-invalid">
+                                <div class="invalid-feedback" th:errors="*{latitude}">Erro da latitude</div>
+                            </div>
+                            <div class="col-6">
+                                <label for="longitude" class="form-label small">Longitude</label>
+                                <input type="number" step="any" inputmode="decimal" class="form-control form-control-lg"
+                                    th:field="*{longitude}" th:errorclass="is-invalid">
+                                <div class="invalid-feedback" th:errors="*{longitude}">Erro da longitude</div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div class="mb-3">
+                        <label for="foto" class="form-label">Foto do manômetro (opcional)</label>
+                        <input type="file" id="foto" name="foto" class="form-control form-control-lg" accept="image/*"
+                            capture="environment" data-limite-bytes="5242880" data-aviso="avisoFoto"
+                            th:classappend="${#fields.hasErrors('foto')} ? 'is-invalid'">
+                        <div class="invalid-feedback" th:errors="*{foto}">Erro da foto</div>
+                        <div id="avisoFoto" class="form-text" role="status">JPEG ou PNG, até 5 MB.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-gauge-high me-2"></i>Registrar medição
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========== Correção depois da medição reprovada (transição 12) ========== -->
+        <section th:if="${corrigindo}" class="card shadow-sm mb-3 border-danger">
+            <div class="card-body">
+                <h2 class="h5">Corrigir a instalação</h2>
+                <p>A última medição ficou fora do parâmetro. Corrija a instalação e registre o que foi feito; ela
+                    volta para execução e, depois de concluída, é medida de novo.</p>
+                <form th:action="@{/campo/ordens/{id}/correcao(id=${ordem.id})}" th:object="${correcaoForm}" method="post" novalidate>
+                    <div class="mb-3">
+                        <label for="descricao" class="form-label">O que foi corrigido (opcional)</label>
+                        <textarea class="form-control" rows="3" maxlength="450" th:field="*{descricao}"
+                            th:errorclass="is-invalid" placeholder="troca do bico, ajuste do registro..."></textarea>
+                        <div class="invalid-feedback" th:errors="*{descricao}">Erro da descrição</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-wrench me-2"></i>Registrar correção
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========== Aceite (RF18, G7) e pendência ========== -->
+        <th:block th:if="${colhendo}">
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Aceite do cliente</h2>
+                    <form th:action="@{/campo/ordens/{id}/aceite(id=${ordem.id})}" th:object="${aceiteForm}" method="post" novalidate>
+                        <div class="mb-3">
+                            <label for="nomeResponsavel" class="form-label">Nome de quem assina</label>
+                            <input type="text" class="form-control form-control-lg" maxlength="120"
+                                th:field="*{nomeResponsavel}" th:errorclass="is-invalid" autocomplete="off">
+                            <div class="invalid-feedback" th:errors="*{nomeResponsavel}">Erro do nome</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="quadroAssinatura" class="form-label mb-0">Assinatura</label>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-limpar-assinatura="quadroAssinatura">
+                                    <i class="fas fa-eraser me-1"></i>Limpar
+                                </button>
+                            </div>
+                            <canvas id="quadroAssinatura" class="quadro-assinatura" data-assinatura
+                                data-campo="assinatura" data-aviso="avisoAssinatura"
+                                aria-label="Quadro para o cliente assinar com o dedo ou o mouse"></canvas>
+                            <input type="hidden" th:field="*{assinatura}">
+                            <div class="text-danger small mt-1" th:if="${#fields.hasErrors('assinatura')}"
+                                th:errors="*{assinatura}">Erro da assinatura</div>
+                            <div id="avisoAssinatura" class="text-danger small mt-1" role="status"></div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-lg w-100">
+                            <i class="fas fa-signature me-2"></i>Salvar aceite
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <details class="card shadow-sm mb-3" th:open="${abrirPendencia}">
+                <summary class="card-header fw-semibold">Cliente não assinou</summary>
+                <div class="card-body">
+                    <form th:action="@{/campo/ordens/{id}/pendencia(id=${ordem.id})}" th:object="${pendenciaForm}"
+                        method="post" novalidate>
+                        <fieldset class="mb-3">
+                            <legend class="form-label fs-6">Tipo da pendência</legend>
+                            <div th:each="t : ${tiposPendencia}" class="form-check">
+                                <input type="radio" class="form-check-input" th:field="*{tipo}" th:value="${t}"
+                                    th:errorclass="is-invalid">
+                                <label class="form-check-label" th:for="${#ids.prev('tipo')}" th:text="${t.rotulo}">Técnica</label>
+                            </div>
+                            <div class="form-text">Técnica volta para a medição; administrativa, para uma nova visita de aceite.</div>
+                            <div class="text-danger small" th:if="${#fields.hasErrors('tipo')}" th:errors="*{tipo}">Erro do tipo</div>
+                        </fieldset>
+                        <div class="mb-3">
+                            <label for="descricao" class="form-label">Por que não assinou</label>
+                            <textarea class="form-control" rows="3" maxlength="500" th:field="*{descricao}"
+                                th:errorclass="is-invalid"></textarea>
+                            <div class="invalid-feedback" th:errors="*{descricao}">Erro da descrição</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="dataReprogramada" class="form-label">Reprogramado para</label>
+                            <input type="datetime-local" class="form-control form-control-lg" th:field="*{dataReprogramada}"
+                                th:min="${#temporals.format(agora, 'yyyy-MM-dd''T''HH:mm')}" th:errorclass="is-invalid">
+                            <div class="invalid-feedback" th:errors="*{dataReprogramada}">Erro da data</div>
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger btn-lg w-100">
+                            <i class="fas fa-triangle-exclamation me-2"></i>Registrar pendência
+                        </button>
+                    </form>
+                </div>
+            </details>
+        </th:block>
+
+        <!-- ========== Pendência aberta ========== -->
+        <section th:if="${tratando and pendencia != null}" class="card shadow-sm mb-3 border-warning">
+            <div class="card-body">
+                <h2 class="h5" th:text="|Pendência ${#strings.toLowerCase(pendencia.tipo.rotulo)}|">Pendência técnica</h2>
+                <p class="mb-1" th:text="${pendencia.descricao}">Descrição</p>
+                <p class="small text-muted"
+                    th:text="|Registrada em ${#temporals.format(pendencia.dataRegistro, 'dd/MM/yyyy HH:mm')}, reprogramada para ${#temporals.format(pendencia.dataReprogramada, 'dd/MM/yyyy HH:mm')}.|">
+                    Registrada em 16/11/2026 10:00, reprogramada para 18/11/2026 09:00.</p>
+                <p class="small" th:text="${pendencia.tipo.name() == 'TECNICA'} ? 'Resolvida, a instalação volta para a medição.' : 'Resolvida, o aceite pode ser colhido de novo.'">
+                    Resolvida, a instalação volta para a medição.</p>
+                <form th:action="@{/campo/ordens/{id}/pendencia/resolucao(id=${ordem.id})}" method="post"
+                    data-confirmar="Marcar a pendência como resolvida?">
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-check me-2"></i>Resolver pendência
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========== Medições do projeto ========== -->
+        <section class="mb-4">
+            <h2 class="h5">Medições</h2>
+            <th:block th:replace="~{fragments/execucao :: medicoes(${medicoes}, ${projeto.id})}"></th:block>
+        </section>
+
+        <a th:href="@{/campo/minhas-os}" class="btn btn-outline-secondary w-100 mb-3">
+            <i class="fas fa-arrow-left me-2"></i>Minhas OS
+        </a>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

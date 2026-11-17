@@ -14,8 +14,8 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
 /**
- * Confere tamanho e formato das fotos enviadas no levantamento (RF03). As mensagens são fixas e
- * não levam o nome do arquivo, que vem do usuário.
+ * Confere tamanho e formato das fotos enviadas no levantamento (RF03) e na medição (RF17). As
+ * mensagens são fixas e não levam o nome do arquivo, que vem do usuário.
  */
 public class FotosValidasValidator implements ConstraintValidator<FotosValidas, List<MultipartFile>> {
 
@@ -24,6 +24,19 @@ public class FotosValidasValidator implements ConstraintValidator<FotosValidas, 
 
     @Override
     public boolean isValid(List<MultipartFile> arquivos, ConstraintValidatorContext contexto) {
+        return conferir(arquivos, contexto);
+    }
+
+    /** O mesmo para um campo de uma foto só, como o da medição. */
+    public static class FotoUnica implements ConstraintValidator<FotosValidas, MultipartFile> {
+
+        @Override
+        public boolean isValid(MultipartFile arquivo, ConstraintValidatorContext contexto) {
+            return conferir(arquivo == null ? List.of() : List.of(arquivo), contexto);
+        }
+    }
+
+    private static boolean conferir(List<MultipartFile> arquivos, ConstraintValidatorContext contexto) {
         if (arquivos == null) {
             return true;
         }

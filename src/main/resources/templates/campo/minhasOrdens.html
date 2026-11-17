@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Ordens de serviço abertas do técnico logado (RF15, RNF06): um cartão grande por ordem -->
+<head th:replace="~{fragments/head :: head('Minhas OS')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-3 tela-campo">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title mb-3">Minhas OS</h1>
+
+        <p th:if="${#lists.isEmpty(ordens)}" class="text-muted">Nenhuma ordem de serviço aberta para você.</p>
+
+        <div th:each="o : ${ordens}" class="card shadow-sm mb-3 cartao-os"
+            th:classappend="${o.dataProgramada.isBefore(hoje)} ? 'os-atrasada'">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                    <h2 class="h5 mb-0" th:text="|OS ${o.numero} · ${o.projeto.codigo}|">OS 1 · PRJ-2026-0001</h2>
+                    <span th:replace="~{fragments/situacao :: badge(${o.projeto.situacao})}"></span>
+                </div>
+                <div class="fw-semibold" th:text="${o.projeto.propriedade.produtor.nome}">Produtor</div>
+                <div class="text-muted" th:text="|${o.projeto.propriedade.nome}, ${o.projeto.propriedade.municipio}|">
+                    Fazenda, Município</div>
+                <div class="mt-2">
+                    <i class="fas fa-calendar-day me-1"></i>
+                    <span th:text="${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}">16/11/2026</span>
+                    <span th:if="${o.dataProgramada.equals(hoje)}" class="badge text-bg-primary ms-1">Hoje</span>
+                    <span th:if="${o.dataProgramada.isBefore(hoje)}" class="badge text-bg-danger ms-1">Atrasada</span>
+                </div>
+                <a th:href="@{/campo/ordens/{id}(id=${o.id})}" class="btn btn-primary btn-lg w-100 mt-3 stretched-link">
+                    <i class="fas fa-screwdriver-wrench me-2"></i>Abrir ordem
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

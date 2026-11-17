@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     conferirFotosEscolhidas();
     buscarMaterial();
     imprimirPagina();
+    prepararAssinatura();
 });
 
 // Botão data-imprimir: abre a janela de impressão do navegador, que também salva em PDF.
@@ -279,5 +280,94 @@ function buscarMaterial() {
                 limpar();
             }
         });
+    });
+}
+
+// Quadro de assinatura do aceite (RF18): <canvas data-assinatura data-campo="idDoHidden"
+// data-aviso="idDoAviso">, com um botão data-limpar-assinatura="idDoCanvas". Pointer Events
+// cobrem mouse, caneta e toque. No envio, o desenho vai para o campo escondido como PNG em base64;
+// quadro sem traço não envia. O servidor confere de novo.
+function prepararAssinatura() {
+    document.querySelectorAll('canvas[data-assinatura]').forEach(function (quadro) {
+        var campo = document.getElementById(quadro.getAttribute('data-campo'));
+        var aviso = document.getElementById(quadro.getAttribute('data-aviso'));
+        var formulario = quadro.closest('form');
+        var contexto = quadro.getContext('2d');
+        var desenhando = false;
+        var temTraco = false;
+
+        // O canvas desenha na resolução da tela, para o traço não sair borrado no celular
+        function ajustarTamanho() {
+            var escala = window.devicePixelRatio || 1;
+            var largura = quadro.clientWidth;
+            var altura = quadro.clientHeight;
+            quadro.width = Math.round(largura * escala);
+            quadro.height = Math.round(altura * escala);
+            contexto.setTransform(escala, 0, 0, escala, 0, 0);
+            contexto.lineWidth = 2.5;
+            contexto.lineCap = 'round';
+            contexto.lineJoin = 'round';
+            contexto.strokeStyle = '#1a1a1a';
+            temTraco = false;
+            campo.value = '';
+        }
+
+        function ponto(evento) {
+            var area = quadro.getBoundingClientRect();
+            return { x: evento.clientX - area.left, y: evento.clientY - area.top };
+        }
+
+        quadro.addEventListener('pointerdown', function (evento) {
+            evento.preventDefault();
+            quadro.setPointerCapture(evento.pointerId);
+            desenhando = true;
+            var p = ponto(evento);
+            contexto.beginPath();
+            contexto.moveTo(p.x, p.y);
+            // Um toque sem arrastar também deixa marca
+            contexto.lineTo(p.x + 0.1, p.y + 0.1);
+            contexto.stroke();
+            temTraco = true;
+        });
+        quadro.addEventListener('pointermove', function (evento) {
+            if (!desenhando) {
+                return;
+            }
+            evento.preventDefault();
+            var p = ponto(evento);
+            contexto.lineTo(p.x, p.y);
+            contexto.stroke();
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (tipo) {
+            quadro.addEventListener(tipo, function () {
+                desenhando = false;
+            });
+        });
+
+        document.querySelectorAll('[data-limpar-assinatura="' + quadro.id + '"]').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                contexto.clearRect(0, 0, quadro.width, quadro.height);
+                temTraco = false;
+                campo.value = '';
+                if (aviso) {
+                    aviso.textContent = '';
+                }
+            });
+        });
+
+        formulario.addEventListener('submit', function (evento) {
+            if (!temTraco) {
+                evento.preventDefault();
+                if (aviso) {
+                    aviso.textContent = 'Peça ao cliente para assinar no quadro antes de salvar.';
+                }
+                return;
+            }
+            campo.value = quadro.toDataURL('image/png');
+        });
+
+        ajustarTamanho();
+        // Girar o celular muda a largura do quadro; o desenho recomeça para não ficar deformado
+        window.addEventListener('orientationchange', ajustarTamanho);
     });
 }

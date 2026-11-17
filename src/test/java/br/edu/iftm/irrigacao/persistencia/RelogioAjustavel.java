@@ -1,6 +1,7 @@
 package br.edu.iftm.irrigacao.persistencia;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -19,6 +20,11 @@ public class RelogioAjustavel extends Clock {
 
     public void definir(LocalDateTime dataHora) {
         this.instante = dataHora.atZone(zona).toInstant();
+    }
+
+    /** Adianta o relógio, para separar no tempo dois registros do mesmo teste. */
+    public void avancar(Duration intervalo) {
+        this.instante = instante.plus(intervalo);
     }
 
     @Override

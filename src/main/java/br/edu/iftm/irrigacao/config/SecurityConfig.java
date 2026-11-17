@@ -83,6 +83,9 @@ public class SecurityConfig {
                     .hasAnyAuthority(comAdministrador(COMPRADOR))
                 .requestMatchers(HttpMethod.POST, "/estoque/projetos/*/separacao", "/estoque/projetos/*/separacao/**")
                     .hasAnyAuthority(comAdministrador(ALMOXARIFE))
+                // Sobras (RF19): quem confirma a devolução é o almoxarife
+                .requestMatchers(HttpMethod.POST, "/estoque/projetos/*/sobras")
+                    .hasAnyAuthority(comAdministrador(ALMOXARIFE))
                 .requestMatchers("/estoque/**").hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR))
                 .requestMatchers("/campo/**").hasAnyAuthority(comAdministrador(TECNICO_CAMPO, PROJETISTA))
                 .requestMatchers("/financeiro/**").hasAnyAuthority(comAdministrador(FINANCEIRO, DIRETORIA))

@@ -18,4 +18,13 @@ public interface ApontamentoMaterialRepository extends JpaRepository<Apontamento
             order by a.dataHora, a.id
             """)
     List<ApontamentoMaterial> listarPorProjetoComMaterial(@Param("projetoId") Long projetoId);
+
+    /** Materiais apontados numa ordem de serviço, com o material já carregado (RF16). */
+    @Query("""
+            select a from ApontamentoMaterial a
+            join fetch a.material
+            where a.ordemServico.id = :ordemId
+            order by a.dataHora, a.id
+            """)
+    List<ApontamentoMaterial> listarPorOrdemComMaterial(@Param("ordemId") Long ordemId);
 }

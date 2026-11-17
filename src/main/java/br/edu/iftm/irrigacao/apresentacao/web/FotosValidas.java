@@ -15,7 +15,7 @@ import jakarta.validation.Payload;
  * gravar.
  */
 @Documented
-@Constraint(validatedBy = FotosValidasValidator.class)
+@Constraint(validatedBy = { FotosValidasValidator.class, FotosValidasValidator.FotoUnica.class })
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface FotosValidas {

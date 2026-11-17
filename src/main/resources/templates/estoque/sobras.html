@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!-- Devolução das sobras ao estoque (RF19, G8, Figura 8): sobra = separada - apontada -->
+<head th:replace="~{fragments/head :: head('Sobras do projeto')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1 page-title">
+            <h1 class="h2 mb-0 me-2">Sobras do projeto</h1>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </div>
+        <p class="mb-4">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+        </p>
+
+        <p th:if="${projeto.sobrasDevolvidas}" class="alert alert-success">As sobras deste projeto já foram tratadas.</p>
+        <p th:if="${!projeto.sobrasDevolvidas and !podeDevolver}" class="alert alert-secondary">
+            As sobras são devolvidas com o projeto em "Finalizando execução", depois do aceite do cliente.
+        </p>
+
+        <form th:action="@{/estoque/projetos/{id}/sobras(id=${projeto.id})}" method="post" novalidate>
+            <div class="table-responsive mb-3">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Material</th>
+                            <th scope="col" class="text-end">Separada</th>
+                            <th scope="col" class="text-end">Apontada</th>
+                            <th scope="col" class="text-end">Sobra</th>
+                            <th scope="col" class="text-end" th:text="${podeDevolver} ? 'Devolvida agora' : 'Devolvida'">Devolvida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="s : ${sobras}">
+                            <td>
+                                <span class="fw-semibold" th:text="${s.material.codigo}">TB-PVC-050</span>
+                                <span class="small text-muted" th:text="${s.material.descricao}">Tubo PVC</span>
+                            </td>
+                            <td class="text-end text-nowrap" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.separada)}">10</td>
+                            <td class="text-end text-nowrap" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.apontada)}">8</td>
+                            <td class="text-end text-nowrap fw-semibold"
+                                th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.sobra)} ${s.material.unidade}|">2 barra</td>
+                            <td class="text-end">
+                                <input th:if="${podeDevolver and s.temSobra}" type="number" step="any" min="0"
+                                    th:max="${s.sobra}" inputmode="decimal" class="form-control form-control-sm campo-quantidade ms-auto"
+                                    th:name="|devolvidas[${s.item.id}]|" th:value="${s.sobra}"
+                                    th:attr="aria-label=|Quantidade devolvida de ${s.material.codigo}|">
+                                <span th:unless="${podeDevolver and s.temSobra}"
+                                    th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.devolvida)}">2</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <th:block th:if="${podeDevolver}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')">
+                <th:block th:if="${temSobra}">
+                    <p class="small text-muted">Informe o que de fato voltou. Pode ser menos que a sobra; o que não voltar
+                        fica registrado como não devolvido.</p>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-box-open me-2"></i>Confirmar devolução
+                    </button>
+                </th:block>
+                <th:block th:unless="${temSobra}">
+                    <p class="small text-muted">Nada sobrou: tudo o que foi separado foi apontado na instalação.</p>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check me-2"></i>Confirmar sem sobras
+                    </button>
+                </th:block>
+            </th:block>
+        </form>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

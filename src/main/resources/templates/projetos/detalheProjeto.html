@@ -270,8 +270,144 @@
                             </a>
                         </div>
                     </div>
+                    <!-- Aba Execução (RF15 a RF19): ordens, apontamentos, medições, aceite, pendências e sobras -->
                     <div class="tab-pane fade" id="aba-execucao" role="tabpanel" aria-labelledby="aba-execucao-tab">
-                        <p class="text-muted mb-0">A execução ainda não começou.</p>
+                        <p th:unless="${execucaoComecou}" class="text-muted mb-0">A execução ainda não começou.</p>
+                        <th:block th:if="${execucaoComecou}">
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <a th:if="${podeProgramar}" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')"
+                                    th:href="@{/engenharia/projetos/{id}/programacao(id=${projeto.id})}" class="btn btn-primary">
+                                    <i class="fas fa-calendar-plus me-2"></i>Programar execução
+                                </a>
+                                <a th:if="${podeDevolverSobras}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')"
+                                    th:href="@{/estoque/projetos/{id}/sobras(id=${projeto.id})}" class="btn btn-primary">
+                                    <i class="fas fa-box-open me-2"></i>Devolver sobras
+                                </a>
+                            </div>
+
+                            <h2 class="h5">Ordens de serviço</h2>
+                            <p th:if="${#lists.isEmpty(ordens)}" class="text-muted">Nenhuma ordem de serviço emitida.</p>
+                            <ul th:unless="${#lists.isEmpty(ordens)}" class="list-group mb-4">
+                                <li th:each="o : ${ordens}" class="list-group-item">
+                                    <a sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')"
+                                        th:href="@{/campo/ordens/{id}(id=${o.id})}" class="fw-semibold" th:text="|OS ${o.numero}|">OS 1</a>
+                                    <span sec:authorize="!hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')"
+                                        class="fw-semibold" th:text="|OS ${o.numero}|">OS 1</span>
+                                    <span th:text="|· programada para ${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}|">· programada para 16/11/2026</span>
+                                    <div class="small" th:text="${#strings.listJoin(o.tecnicos.![nome], ', ')}">Técnicos</div>
+                                    <div class="small text-muted" th:text="${o.dataConclusao != null} ? |Concluída em ${#temporals.format(o.dataConclusao, 'dd/MM/yyyy')}| : 'Aberta'">Aberta</div>
+                                </li>
+                            </ul>
+
+                            <h2 class="h5">Apontamentos</h2>
+                            <p th:if="${#lists.isEmpty(horasApontadas) and #lists.isEmpty(materiaisApontados)}" class="text-muted">
+                                Nenhum apontamento.</p>
+                            <div th:unless="${#lists.isEmpty(horasApontadas)}" class="table-responsive mb-3">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Horas</th>
+                                            <th scope="col">Quando</th>
+                                            <th scope="col">Quem</th>
+                                            <th scope="col" class="text-end">Custo da hora</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="h : ${horasApontadas}">
+                                            <td th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(h.horas)} h|">8 h</td>
+                                            <td class="text-nowrap" th:text="${#temporals.format(h.dataHora, 'dd/MM/yyyy HH:mm')}">16/11/2026 10:00</td>
+                                            <td th:text="${h.usuario != null} ? ${h.usuario.nome} : '—'">Técnico</td>
+                                            <td class="text-end text-nowrap" th:text="|R$ ${#numbers.formatDecimal(h.valorHora, 1, 'POINT', 2, 'COMMA')}|">R$ 45,00</td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th scope="row" th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(totalHoras)} h no total|">8 h no total</th>
+                                            <td colspan="3"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <div th:unless="${#lists.isEmpty(materiaisApontados)}" class="table-responsive mb-4">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Material apontado</th>
+                                            <th scope="col" class="text-end">Quantidade</th>
+                                            <th scope="col">Quando</th>
+                                            <th scope="col">Quem</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="a : ${materiaisApontados}">
+                                            <td>
+                                                <span class="fw-semibold" th:text="${a.material.codigo}">TB-PVC-050</span>
+                                                <span class="small text-muted" th:text="${a.material.descricao}">Tubo</span>
+                                            </td>
+                                            <td class="text-end text-nowrap"
+                                                th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(a.quantidade)} ${a.material.unidade}|">8 barra</td>
+                                            <td class="text-nowrap" th:text="${#temporals.format(a.dataHora, 'dd/MM/yyyy HH:mm')}">16/11/2026 10:00</td>
+                                            <td th:text="${a.usuario != null} ? ${a.usuario.nome} : '—'">Técnico</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h2 class="h5">Medições</h2>
+                            <th:block th:replace="~{fragments/execucao :: medicoes(${medicoes}, ${projeto.id})}"></th:block>
+
+                            <h2 class="h5">Aceite</h2>
+                            <p th:if="${aceite == null}" class="text-muted">O aceite ainda não foi colhido.</p>
+                            <div th:if="${aceite != null}" class="mb-4">
+                                <p class="mb-2"
+                                    th:text="|Assinado por ${aceite.nomeResponsavel} em ${#temporals.format(aceite.dataHora, 'dd/MM/yyyy HH:mm')}|">
+                                    Assinado por Cliente em 16/11/2026 15:00</p>
+                                <img th:src="|data:image/png;base64,${aceite.assinatura}|" class="assinatura-gravada"
+                                    th:alt="|Assinatura de ${aceite.nomeResponsavel}|">
+                            </div>
+
+                            <h2 class="h5">Pendências</h2>
+                            <p th:if="${#lists.isEmpty(pendencias)}" class="text-muted">Nenhuma pendência.</p>
+                            <ul th:unless="${#lists.isEmpty(pendencias)}" class="list-group mb-4">
+                                <li th:each="p : ${pendencias}" class="list-group-item">
+                                    <div class="d-flex flex-wrap justify-content-between gap-2">
+                                        <span class="fw-semibold" th:text="|Pendência ${#strings.toLowerCase(p.tipo.rotulo)}|">Pendência técnica</span>
+                                        <span th:if="${p.resolvida}" class="badge text-bg-success">Resolvida</span>
+                                        <span th:unless="${p.resolvida}" class="badge text-bg-warning">Aberta</span>
+                                    </div>
+                                    <div th:text="${p.descricao}">Descrição</div>
+                                    <div class="small text-muted"
+                                        th:text="|Registrada em ${#temporals.format(p.dataRegistro, 'dd/MM/yyyy HH:mm')}, reprogramada para ${#temporals.format(p.dataReprogramada, 'dd/MM/yyyy HH:mm')}|">
+                                        Registrada em 16/11/2026 10:00, reprogramada para 18/11/2026 09:00</div>
+                                </li>
+                            </ul>
+
+                            <h2 class="h5">Sobras</h2>
+                            <p th:unless="${projeto.sobrasDevolvidas}" class="text-muted">
+                                As sobras são tratadas pelo almoxarifado depois do aceite.</p>
+                            <th:block th:if="${projeto.sobrasDevolvidas}">
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Material</th>
+                                                <th scope="col" class="text-end">Sobra</th>
+                                                <th scope="col" class="text-end">Devolvida</th>
+                                                <th scope="col" class="text-end">Não devolvida</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="s : ${sobras}">
+                                                <td th:text="${s.material.codigo}">TB-PVC-050</td>
+                                                <td class="text-end" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.sobra)}">2</td>
+                                                <td class="text-end" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.devolvida)}">2</td>
+                                                <td class="text-end" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(s.naoDevolvida)}">0</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </th:block>
+                        </th:block>
                     </div>
                     <div class="tab-pane fade" id="aba-encerramento" role="tabpanel"
                         aria-labelledby="aba-encerramento-tab">

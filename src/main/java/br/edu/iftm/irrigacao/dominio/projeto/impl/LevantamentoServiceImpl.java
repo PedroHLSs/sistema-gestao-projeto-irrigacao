@@ -1,9 +1,5 @@
 package br.edu.iftm.irrigacao.dominio.projeto.impl;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -15,18 +11,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import br.edu.iftm.irrigacao.dominio.RegistroNaoEncontradoException;
 import br.edu.iftm.irrigacao.dominio.RegraNegocioException;
 import br.edu.iftm.irrigacao.dominio.projeto.AgendaSemanal;
 import br.edu.iftm.irrigacao.dominio.projeto.AgendaSemanal.DiaDaAgenda;
+import br.edu.iftm.irrigacao.dominio.projeto.ArmazenamentoDeFotos;
 import br.edu.iftm.irrigacao.dominio.projeto.DadosLevantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoArmazenada;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoEnviada;
@@ -39,10 +32,8 @@ import br.edu.iftm.irrigacao.persistencia.LevantamentoRepository;
 import br.edu.iftm.irrigacao.persistencia.ProjetoRepository;
 
 /**
- * Agendamento e agenda (RF02), levantamento em campo com fotos (RF03, RNF02) e G1 (RF04).
- *
- * <p>As fotos vão para o disco antes do commit. Se a transação for desfeita depois disso, os
- * arquivos gravados nela são apagados, para não sobrar foto sem registro.
+ * Agendamento e agenda (RF02), levantamento em campo com fotos (RF03, RNF02) e G1 (RF04). As fotos
+ * seguem as regras do {@link ArmazenamentoDeFotos}.
  */
 @Service
 public class LevantamentoServiceImpl implements LevantamentoService {
@@ -52,14 +43,14 @@ public class LevantamentoServiceImpl implements LevantamentoService {
     private final LevantamentoRepository levantamentoRepository;
     private final ProjetoRepository projetoRepository;
     private final Clock clock;
-    private final Path pastaDeUploads;
+    private final ArmazenamentoDeFotos armazenamento;
 
     public LevantamentoServiceImpl(LevantamentoRepository levantamentoRepository, ProjetoRepository projetoRepository,
-            Clock clock, @Value("${irrigacao.upload.dir}") String pastaDeUploads) {
+            Clock clock, ArmazenamentoDeFotos armazenamento) {
         this.levantamentoRepository = levantamentoRepository;
         this.projetoRepository = projetoRepository;
         this.clock = clock;
-        this.pastaDeUploads = Path.of(pastaDeUploads).toAbsolutePath().normalize();
+        this.armazenamento = armazenamento;
     }
 
     // ---------- Agendamento e agenda (RF02) ----------
@@ -145,7 +136,7 @@ public class LevantamentoServiceImpl implements LevantamentoService {
         }
         conferirValores(dados);
         // Todas as fotos são conferidas antes de gravar a primeira
-        List<TipoFoto> tipos = fotos.stream().map(LevantamentoServiceImpl::conferirFoto).toList();
+        List<TipoFoto> tipos = fotos.stream().map(armazenamento::conferir).toList();
 
         Levantamento levantamento = levantamentoRepository.findByProjetoId(projetoId).orElseGet(() -> {
             Levantamento novo = new Levantamento();
@@ -161,7 +152,8 @@ public class LevantamentoServiceImpl implements LevantamentoService {
         levantamento.setLatitude(dados.latitude());
         levantamento.setLongitude(dados.longitude());
         for (int i = 0; i < fotos.size(); i++) {
-            levantamento.getFotos().add(gravarFoto(projetoId, fotos.get(i), tipos.get(i)));
+            levantamento.getFotos().add(armazenamento.gravar(PASTA_LEVANTAMENTO + "/" + projetoId, fotos.get(i),
+                    tipos.get(i)));
         }
         return levantamentoRepository.save(levantamento);
     }
@@ -215,13 +207,7 @@ public class LevantamentoServiceImpl implements LevantamentoService {
         if (indice < 0 || indice >= fotos.size()) {
             throw new RegistroNaoEncontradoException("Foto não encontrada.");
         }
-        Path arquivo = pastaDeUploads.resolve(fotos.get(indice)).normalize();
-        Optional<TipoFoto> tipo = TipoFoto.pelaExtensao(arquivo.toString());
-        // O caminho vem do banco, mas a conferência garante que nada fora da pasta de uploads é servido
-        if (!arquivo.startsWith(pastaDeUploads) || tipo.isEmpty() || !Files.isRegularFile(arquivo)) {
-            throw new RegistroNaoEncontradoException("Foto não encontrada.");
-        }
-        return new FotoArmazenada(arquivo, tipo.get());
+        return armazenamento.abrir(fotos.get(indice));
     }
 
     // ---------- Apoio ----------
@@ -252,64 +238,6 @@ public class LevantamentoServiceImpl implements LevantamentoService {
         if (valor != null && valor <= 0) {
             throw new RegraNegocioException(mensagem);
         }
-    }
-
-    /** JPEG ou PNG pelos primeiros bytes, com até 5 MB. */
-    private static TipoFoto conferirFoto(FotoEnviada foto) {
-        String nome = nomeParaMensagem(foto.nomeOriginal());
-        if (foto.conteudo() == null || foto.conteudo().length == 0) {
-            throw new RegraNegocioException("A foto " + nome + " está vazia.");
-        }
-        if (foto.conteudo().length > TAMANHO_MAXIMO_FOTO) {
-            throw new RegraNegocioException("A foto " + nome + " passa de 5 MB.");
-        }
-        return TipoFoto.detectar(foto.conteudo())
-                .orElseThrow(() -> new RegraNegocioException("O arquivo " + nome + " não é uma foto JPEG nem PNG."));
-    }
-
-    /**
-     * Grava a foto com nome UUID e devolve o caminho relativo à pasta de uploads, com barras
-     * normais, que é o que vai para o banco.
-     */
-    private String gravarFoto(Long projetoId, FotoEnviada foto, TipoFoto tipo) {
-        String relativo = PASTA_LEVANTAMENTO + "/" + projetoId + "/" + UUID.randomUUID() + "." + tipo.getExtensao();
-        Path destino = pastaDeUploads.resolve(relativo).normalize();
-        try {
-            Files.createDirectories(destino.getParent());
-            Files.write(destino, foto.conteudo());
-        } catch (IOException e) {
-            throw new UncheckedIOException("Não foi possível gravar a foto do levantamento.", e);
-        }
-        apagarSeATransacaoForDesfeita(destino);
-        return relativo;
-    }
-
-    private static void apagarSeATransacaoForDesfeita(Path arquivo) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status != STATUS_COMMITTED) {
-                    try {
-                        Files.deleteIfExists(arquivo);
-                    } catch (IOException e) {
-                        // Sobra um arquivo sem registro, que não aparece em lugar nenhum
-                    }
-                }
-            }
-        });
-    }
-
-    /** Só o nome do arquivo, sem pasta, com no máximo 60 caracteres. */
-    private static String nomeParaMensagem(String nomeOriginal) {
-        if (nomeOriginal == null || nomeOriginal.isBlank()) {
-            return "sem nome";
-        }
-        String nome = nomeOriginal.replace('\\', '/');
-        nome = nome.substring(nome.lastIndexOf('/') + 1);
-        return "\"" + (nome.length() > 60 ? nome.substring(0, 60) + "..." : nome) + "\"";
     }
 
     private static String texto(String valor) {

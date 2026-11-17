@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Programação da equipe e emissão da ordem de serviço (RF15) -->
+<head th:replace="~{fragments/head :: head('Programação da execução')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1 page-title">
+            <h1 class="h2 mb-0 me-2">Programação da execução</h1>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </div>
+        <p class="mb-4">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            · <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span>
+        </p>
+
+        <div class="row g-4">
+            <div class="col-12 col-lg-6">
+                <section th:if="${podeEmitir}" class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="h5">Nova ordem de serviço</h2>
+                        <p th:if="${#lists.isEmpty(tecnicos)}" class="alert alert-warning">
+                            Não há usuário ativo com perfil Técnico de campo. Cadastre um antes de programar a execução.
+                        </p>
+                        <form th:action="@{/engenharia/projetos/{id}/programacao(id=${projeto.id})}" th:object="${programacao}"
+                            method="post" novalidate>
+                            <div class="mb-3">
+                                <label for="dataProgramada" class="form-label">Data programada</label>
+                                <input type="date" class="form-control" th:field="*{dataProgramada}"
+                                    th:min="${#temporals.format(hoje, 'yyyy-MM-dd')}" th:errorclass="is-invalid">
+                                <div class="invalid-feedback" th:errors="*{dataProgramada}">Erro da data</div>
+                            </div>
+                            <fieldset class="mb-3">
+                                <legend class="form-label fs-6">Técnicos de campo</legend>
+                                <div th:each="t : ${tecnicos}" class="form-check">
+                                    <input type="checkbox" class="form-check-input" th:field="*{tecnicos}" th:value="${t.id}"
+                                        th:errorclass="is-invalid">
+                                    <label class="form-check-label" th:for="${#ids.prev('tecnicos')}" th:text="${t.nome}">Técnico</label>
+                                </div>
+                                <div class="text-danger small" th:if="${#fields.hasErrors('tecnicos')}" th:errors="*{tecnicos}">
+                                    Erro dos técnicos</div>
+                            </fieldset>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-file-signature me-2"></i>Emitir ordem de serviço
+                            </button>
+                        </form>
+                    </div>
+                </section>
+                <p th:unless="${podeEmitir}" class="alert alert-secondary">
+                    A ordem de serviço é emitida com o projeto em "Programando execução".
+                </p>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <h2 class="h5">Ordens emitidas</h2>
+                <p th:if="${#lists.isEmpty(ordens)}" class="text-muted">Nenhuma ordem de serviço.</p>
+                <ul th:unless="${#lists.isEmpty(ordens)}" class="list-group">
+                    <li th:each="o : ${ordens}" class="list-group-item">
+                        <div class="fw-semibold" th:text="|OS ${o.numero} · ${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}|">OS 1 · 16/11/2026</div>
+                        <div class="small" th:text="${#strings.listJoin(o.tecnicos.![nome], ', ')}">Técnicos</div>
+                        <div class="small text-muted" th:text="${o.dataConclusao != null} ? |Concluída em ${#temporals.format(o.dataConclusao, 'dd/MM/yyyy')}| : 'Aberta'">Aberta</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

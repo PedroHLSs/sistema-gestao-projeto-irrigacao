@@ -11,6 +11,9 @@ public interface MedicaoRepository extends JpaRepository<Medicao, Long> {
 
     List<Medicao> findByProjetoIdOrderByDataHoraDesc(Long projetoId);
 
+    /** Medições do projeto, da mais nova para a mais antiga, desempatando pela ordem de registro (RF17). */
+    List<Medicao> findByProjetoIdOrderByDataHoraDescIdDesc(Long projetoId);
+
     /** A última medição do projeto (RF17). */
     Optional<Medicao> findFirstByProjetoIdOrderByDataHoraDesc(Long projetoId);
 }

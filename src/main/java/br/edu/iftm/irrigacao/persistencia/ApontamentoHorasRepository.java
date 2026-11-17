@@ -17,4 +17,7 @@ public interface ApontamentoHorasRepository extends JpaRepository<ApontamentoHor
             order by a.dataHora, a.id
             """)
     List<ApontamentoHoras> listarPorProjeto(@Param("projetoId") Long projetoId);
+
+    /** Horas apontadas numa ordem de serviço, em ordem de lançamento (RF16). */
+    List<ApontamentoHoras> findByOrdemServicoIdOrderByDataHoraAscIdAsc(Long ordemServicoId);
 }
