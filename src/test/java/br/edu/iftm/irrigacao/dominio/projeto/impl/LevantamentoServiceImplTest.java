@@ -53,7 +53,7 @@ class LevantamentoServiceImplTest {
     void criarService() {
         ZoneId zona = ZoneId.systemDefault();
         service = new LevantamentoServiceImpl(levantamentoRepository, projetoRepository,
-                Clock.fixed(AGORA.atZone(zona).toInstant(), zona));
+                Clock.fixed(AGORA.atZone(zona).toInstant(), zona), "target/test-uploads");
     }
 
     private Projeto projetoEm(SituacaoProjeto situacao) {

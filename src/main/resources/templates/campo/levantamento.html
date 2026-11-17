@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Levantamento em campo (RF03, RNF02, RNF06): uma coluna, campos grandes, câmera e GPS do aparelho -->
+<head th:replace="~{fragments/head :: head('Levantamento')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-3 tela-campo">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title mb-2">Levantamento</h1>
+        <p class="mb-3">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span><br>
+            <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span>
+        </p>
+
+        <div th:if="${!#lists.isEmpty(faltantes)}" class="alert alert-warning" role="status">
+            <div class="fw-semibold mb-1">Para enviar, falta:</div>
+            <ul class="mb-0 ps-3">
+                <li th:each="item : ${faltantes}" th:text="${item}">cultura</li>
+            </ul>
+        </div>
+
+        <form th:action="@{/campo/projetos/{id}/levantamento(id=${projeto.id})}" th:object="${dados}" method="post"
+            enctype="multipart/form-data" novalidate>
+            <div class="mb-3">
+                <label for="dataVisita" class="form-label">Data e hora da visita</label>
+                <input type="datetime-local" class="form-control form-control-lg" th:field="*{dataVisita}"
+                    th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{dataVisita}">Erro da data</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="cultura" class="form-label">Cultura</label>
+                <input type="text" class="form-control form-control-lg" th:field="*{cultura}" th:errorclass="is-invalid"
+                    maxlength="80" placeholder="café, milho, hortaliças...">
+                <div class="invalid-feedback" th:errors="*{cultura}">Erro da cultura</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="areaIrrigadaHa" class="form-label">Área irrigada (ha)</label>
+                <input type="number" step="any" min="0" inputmode="decimal" class="form-control form-control-lg"
+                    th:field="*{areaIrrigadaHa}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{areaIrrigadaHa}">Erro da área</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="fonteAgua" class="form-label">Fonte de água</label>
+                <select class="form-select form-select-lg" th:field="*{fonteAgua}" th:errorclass="is-invalid">
+                    <option value="">Selecione</option>
+                    <option th:each="f : ${fontes}" th:value="${f}" th:text="${f.rotulo}">Poço artesiano</option>
+                </select>
+                <div class="invalid-feedback" th:errors="*{fonteAgua}">Erro da fonte</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="vazaoFonte" class="form-label">Vazão da fonte (m³/h)</label>
+                <input type="number" step="any" min="0" inputmode="decimal" class="form-control form-control-lg"
+                    th:field="*{vazaoFonte}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{vazaoFonte}">Erro da vazão</div>
+            </div>
+
+            <div class="mb-4">
+                <label for="topografia" class="form-label">Topografia</label>
+                <input type="text" class="form-control form-control-lg" th:field="*{topografia}" th:errorclass="is-invalid"
+                    maxlength="120" placeholder="plana, ondulada, declive para o rio...">
+                <div class="invalid-feedback" th:errors="*{topografia}">Erro da topografia</div>
+            </div>
+
+            <fieldset class="mb-4">
+                <legend class="form-label fs-6">Coordenada</legend>
+                <button type="button" class="btn btn-outline-primary btn-lg w-100 mb-2" data-localizacao
+                    data-latitude="latitude" data-longitude="longitude" data-aviso="avisoLocalizacao">
+                    <i class="fas fa-location-crosshairs me-2"></i>Usar minha localização
+                </button>
+                <div id="avisoLocalizacao" class="form-text mb-2" role="status"></div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label for="latitude" class="form-label small">Latitude</label>
+                        <input type="number" step="any" inputmode="decimal" class="form-control form-control-lg"
+                            th:field="*{latitude}" th:errorclass="is-invalid" placeholder="-18.911300">
+                        <div class="invalid-feedback" th:errors="*{latitude}">Erro da latitude</div>
+                    </div>
+                    <div class="col-6">
+                        <label for="longitude" class="form-label small">Longitude</label>
+                        <input type="number" step="any" inputmode="decimal" class="form-control form-control-lg"
+                            th:field="*{longitude}" th:errorclass="is-invalid" placeholder="-48.262200">
+                        <div class="invalid-feedback" th:errors="*{longitude}">Erro da longitude</div>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="mb-4">
+                <label for="novasFotos" class="form-label">Fotos</label>
+                <div th:if="${levantamento != null and !#lists.isEmpty(levantamento.fotos)}" class="galeria-fotos mb-2">
+                    <a th:each="foto, st : ${levantamento.fotos}" target="_blank" rel="noopener"
+                        th:href="@{/projetos/{id}/levantamento/fotos/{i}(id=${projeto.id},i=${st.index})}">
+                        <img th:src="@{/projetos/{id}/levantamento/fotos/{i}(id=${projeto.id},i=${st.index})}"
+                            th:alt="|Foto ${st.count} do levantamento|" loading="lazy">
+                    </a>
+                </div>
+                <input type="file" id="novasFotos" name="novasFotos" class="form-control form-control-lg"
+                    accept="image/*" capture="environment" multiple data-limite-bytes="5242880"
+                    data-aviso="avisoFotos" th:classappend="${#fields.hasErrors('novasFotos')} ? 'is-invalid'">
+                <div class="invalid-feedback" th:errors="*{novasFotos}">Erro das fotos</div>
+                <div id="avisoFotos" class="form-text" role="status">JPEG ou PNG, até 5 MB cada. As fotos novas se somam às já enviadas.</div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-lg">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar levantamento
+                </button>
+                <button type="submit" name="acao" value="rascunho" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-floppy-disk me-2"></i>Salvar rascunho
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

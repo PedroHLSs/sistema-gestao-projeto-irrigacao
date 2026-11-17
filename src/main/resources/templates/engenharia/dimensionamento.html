@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Dimensionamento e lista técnica (RF05). Formulários só com o projeto em EM_LEVANTAMENTO e o levantamento completo. -->
+<head th:replace="~{fragments/head :: head('Dimensionamento')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title mb-2">Dimensionamento e lista técnica</h1>
+        <p class="mb-3">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            · <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda</span>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </p>
+
+        <div th:if="${!emLevantamento}" class="alert alert-info">
+            O projeto está em "<span th:text="${projeto.situacao.rotulo}">Orçando</span>": o dimensionamento e a lista
+            técnica não mudam mais.
+        </div>
+        <div th:if="${emLevantamento and !liberada}" class="alert alert-warning">
+            <div class="fw-semibold mb-1">O dimensionamento é liberado quando o levantamento estiver completo. Falta:</div>
+            <ul class="mb-0 ps-3">
+                <li th:each="item : ${faltantes}" th:text="${item}">cultura</li>
+            </ul>
+        </div>
+
+        <!-- Dados de campo que o projetista usa no cálculo -->
+        <div class="card shadow-sm mb-4" th:if="${levantamento != null}">
+            <div class="card-body">
+                <h2 class="h5">Levantamento</h2>
+                <dl class="row mb-0 dados-projeto">
+                    <div class="col-6 col-md-3"><dt>Cultura</dt><dd th:text="${levantamento.cultura} ?: '—'">Café</dd></div>
+                    <div class="col-6 col-md-3"><dt>Área irrigada</dt>
+                        <dd th:text="${levantamento.areaIrrigadaHa != null} ? |${#numbers.formatDecimal(levantamento.areaIrrigadaHa, 1, 'POINT', 2, 'COMMA')} ha| : '—'">12,50 ha</dd></div>
+                    <div class="col-6 col-md-3"><dt>Fonte de água</dt>
+                        <dd th:text="${levantamento.fonteAgua != null} ? ${levantamento.fonteAgua.rotulo} : '—'">Poço</dd></div>
+                    <div class="col-6 col-md-3"><dt>Vazão da fonte</dt>
+                        <dd th:text="${levantamento.vazaoFonte != null} ? |${#numbers.formatDecimal(levantamento.vazaoFonte, 1, 'POINT', 2, 'COMMA')} m³/h| : '—'">8,00 m³/h</dd></div>
+                    <div class="col-12"><dt>Topografia</dt><dd th:text="${levantamento.topografia} ?: '—'">Plana</dd></div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Dimensionamento -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5">Parâmetros de projeto</h2>
+                <p class="text-muted small">
+                    Informe os valores do seu cálculo hidráulico. O sistema não calcula nada: só registra o que o
+                    projetista informa. A tolerância é a margem aceita quando a medição em campo for comparada com
+                    estes valores.
+                </p>
+                <form th:if="${liberada}" th:action="@{/engenharia/projetos/{id}/dimensionamento(id=${projeto.id})}"
+                    th:object="${dimensionamento}" method="post" novalidate class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label for="pressaoProjetoMca" class="form-label">Pressão de projeto (mca)</label>
+                        <input type="number" step="any" min="0" class="form-control" th:field="*{pressaoProjetoMca}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{pressaoProjetoMca}">Erro da pressão</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="vazaoProjetoM3h" class="form-label">Vazão de projeto (m³/h)</label>
+                        <input type="number" step="any" min="0" class="form-control" th:field="*{vazaoProjetoM3h}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{vazaoProjetoM3h}">Erro da vazão</div>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label for="toleranciaPercentual" class="form-label">Tolerância (%)</label>
+                        <input type="number" step="any" min="0" max="100" class="form-control"
+                            th:field="*{toleranciaPercentual}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{toleranciaPercentual}">Erro da tolerância</div>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Gravar</button>
+                    </div>
+                </form>
+                <dl th:unless="${liberada}" class="row mb-0 dados-projeto">
+                    <div class="col-4"><dt>Pressão</dt>
+                        <dd th:text="${projeto.pressaoProjetoMca != null} ? |${#numbers.formatDecimal(projeto.pressaoProjetoMca, 1, 'POINT', 2, 'COMMA')} mca| : 'não informada'">30,00 mca</dd></div>
+                    <div class="col-4"><dt>Vazão</dt>
+                        <dd th:text="${projeto.vazaoProjetoM3h != null} ? |${#numbers.formatDecimal(projeto.vazaoProjetoM3h, 1, 'POINT', 2, 'COMMA')} m³/h| : 'não informada'">6,00 m³/h</dd></div>
+                    <div class="col-4"><dt>Tolerância</dt>
+                        <dd th:text="|${#numbers.formatDecimal(projeto.toleranciaPercentual, 1, 'POINT', 1, 'COMMA')}%|">2,0%</dd></div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Lista técnica -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5">Lista técnica</h2>
+
+                <form th:if="${liberada}" th:action="@{/engenharia/projetos/{id}/itens(id=${projeto.id})}"
+                    th:object="${novoItem}" method="post" novalidate class="row g-2 align-items-start mb-3">
+                    <div class="col-12 col-md-7 position-relative">
+                        <label for="buscaMaterial" class="form-label">Material</label>
+                        <input type="search" id="buscaMaterial" class="form-control" autocomplete="off"
+                            placeholder="Digite o código ou a descrição" th:value="*{materialRotulo}"
+                            th:classappend="${#fields.hasErrors('materialId')} ? 'is-invalid'"
+                            th:attr="data-busca-material=@{/estoque/materiais/busca}"
+                            data-alvo="materialId" data-rotulo="materialRotulo" data-resultados="resultadosMaterial"
+                            data-proximo="quantidadePrevista">
+                        <input type="hidden" th:field="*{materialId}">
+                        <input type="hidden" th:field="*{materialRotulo}">
+                        <div class="invalid-feedback" th:errors="*{materialId}">Escolha o material</div>
+                        <div id="resultadosMaterial" class="list-group resultados-busca" role="listbox"></div>
+                    </div>
+                    <div class="col-7 col-md-3">
+                        <label for="quantidadePrevista" class="form-label">Quantidade prevista</label>
+                        <input type="number" step="0.001" min="0.001" class="form-control" th:field="*{quantidadePrevista}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{quantidadePrevista}">Erro da quantidade</div>
+                    </div>
+                    <div class="col-5 col-md-2">
+                        <label class="form-label d-block">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus me-1"></i>Adicionar</button>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Material</th>
+                                <th scope="col" class="text-end">Quantidade</th>
+                                <th scope="col" class="text-end">Preço de venda</th>
+                                <th scope="col" class="text-end">Subtotal</th>
+                                <th scope="col" th:if="${liberada}" class="text-end"><span class="visually-hidden">Ações</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="i : ${itens}">
+                                <td>
+                                    <span class="fw-semibold" th:text="${i.material.codigo}">TB-PVC-050</span>
+                                    <div class="small text-muted" th:text="${i.material.descricao}">Tubo PVC</div>
+                                </td>
+                                <td class="text-end">
+                                    <form th:if="${liberada}" class="d-flex justify-content-end gap-1"
+                                        th:action="@{/engenharia/projetos/{id}/itens/{item}(id=${projeto.id},item=${i.id})}" method="post">
+                                        <input type="number" name="quantidade" step="0.001" min="0.001" required
+                                            class="form-control form-control-sm campo-quantidade"
+                                            th:value="${i.quantidadePrevista.stripTrailingZeros().toPlainString()}"
+                                            th:attr="aria-label=|Quantidade de ${i.material.codigo}|">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Alterar quantidade">
+                                            <i class="fas fa-check"></i><span class="visually-hidden">Alterar</span>
+                                        </button>
+                                    </form>
+                                    <span th:unless="${liberada}"
+                                        th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadePrevista)}">10</span>
+                                    <span class="small text-muted" th:text="${i.material.unidade}">barra</span>
+                                </td>
+                                <td class="text-end text-nowrap"
+                                    th:text="${i.material.precoVenda != null} ? |R$ ${#numbers.formatDecimal(i.material.precoVenda, 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 62,90</td>
+                                <td class="text-end text-nowrap"
+                                    th:text="${i.material.precoVenda != null} ? |R$ ${#numbers.formatDecimal(i.quantidadePrevista.multiply(i.material.precoVenda), 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 629,00</td>
+                                <td th:if="${liberada}" class="text-end">
+                                    <form th:action="@{/engenharia/projetos/{id}/itens/{item}/remover(id=${projeto.id},item=${i.id})}"
+                                        method="post" th:attr="data-confirmar=|Remover ${i.material.codigo} da lista técnica?|">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover">
+                                            <i class="fas fa-trash"></i><span class="visually-hidden">Remover</span>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(itens)}">
+                                <td colspan="5" class="text-center text-muted py-3">Nenhum item na lista técnica.</td>
+                            </tr>
+                        </tbody>
+                        <tfoot th:unless="${#lists.isEmpty(itens)}">
+                            <tr>
+                                <th scope="row" colspan="3" class="text-end">Total estimado pelo preço de venda atual</th>
+                                <td class="text-end text-nowrap fw-bold"
+                                    th:text="|R$ ${#numbers.formatDecimal(total, 1, 'POINT', 2, 'COMMA')}|">R$ 1.234,56</td>
+                                <td th:if="${liberada}"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <p class="small text-muted mt-2 mb-0">
+                    O preço de cada item só fica fixo no orçamento; aqui vale o preço de venda atual do cadastro.
+                </p>
+            </div>
+        </div>
+
+        <!-- Conclusão: transição EM_LEVANTAMENTO -> ORCANDO -->
+        <form th:if="${liberada}" th:action="@{/engenharia/projetos/{id}/concluir(id=${projeto.id})}" method="post"
+            data-confirmar="Concluir a lista técnica? O projeto vai para Orçando e a lista não muda mais.">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-flag-checkered me-2"></i>Concluir lista técnica
+            </button>
+            <span class="form-text ms-2">Exige pressão e vazão de projeto e pelo menos um item.</span>
+        </form>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

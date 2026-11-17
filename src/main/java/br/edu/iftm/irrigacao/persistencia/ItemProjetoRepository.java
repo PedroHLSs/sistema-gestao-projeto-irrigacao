@@ -43,4 +43,7 @@ public interface ItemProjetoRepository extends JpaRepository<ItemProjeto, Long> 
 
     /** O projeto precisa de pelo menos um item para sair de EM_LEVANTAMENTO. */
     boolean existsByProjetoId(Long projetoId);
+
+    /** Quantos itens a lista técnica do projeto tem (RF05). */
+    long countByProjetoId(Long projetoId);
 }

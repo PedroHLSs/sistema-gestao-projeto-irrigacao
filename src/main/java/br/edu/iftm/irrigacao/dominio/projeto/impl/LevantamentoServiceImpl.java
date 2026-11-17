@@ -1,5 +1,9 @@
 package br.edu.iftm.irrigacao.dominio.projeto.impl;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -11,37 +15,54 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import br.edu.iftm.irrigacao.dominio.RegistroNaoEncontradoException;
 import br.edu.iftm.irrigacao.dominio.RegraNegocioException;
 import br.edu.iftm.irrigacao.dominio.projeto.AgendaSemanal;
 import br.edu.iftm.irrigacao.dominio.projeto.AgendaSemanal.DiaDaAgenda;
+import br.edu.iftm.irrigacao.dominio.projeto.DadosLevantamento;
+import br.edu.iftm.irrigacao.dominio.projeto.FotoArmazenada;
+import br.edu.iftm.irrigacao.dominio.projeto.FotoEnviada;
 import br.edu.iftm.irrigacao.dominio.projeto.Levantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.LevantamentoService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
+import br.edu.iftm.irrigacao.dominio.projeto.TipoFoto;
 import br.edu.iftm.irrigacao.persistencia.LevantamentoRepository;
 import br.edu.iftm.irrigacao.persistencia.ProjetoRepository;
 
 /**
- * Agendamento da visita técnica e agenda semanal (RF02).
+ * Agendamento e agenda (RF02), levantamento em campo com fotos (RF03, RNF02) e G1 (RF04).
+ *
+ * <p>As fotos vão para o disco antes do commit. Se a transação for desfeita depois disso, os
+ * arquivos gravados nela são apagados, para não sobrar foto sem registro.
  */
 @Service
 public class LevantamentoServiceImpl implements LevantamentoService {
 
+    private static final String PASTA_LEVANTAMENTO = "levantamento";
+
     private final LevantamentoRepository levantamentoRepository;
     private final ProjetoRepository projetoRepository;
     private final Clock clock;
+    private final Path pastaDeUploads;
 
     public LevantamentoServiceImpl(LevantamentoRepository levantamentoRepository, ProjetoRepository projetoRepository,
-            Clock clock) {
+            Clock clock, @Value("${irrigacao.upload.dir}") String pastaDeUploads) {
         this.levantamentoRepository = levantamentoRepository;
         this.projetoRepository = projetoRepository;
         this.clock = clock;
+        this.pastaDeUploads = Path.of(pastaDeUploads).toAbsolutePath().normalize();
     }
+
+    // ---------- Agendamento e agenda (RF02) ----------
 
     @Override
     @Transactional(readOnly = true)
@@ -58,8 +79,7 @@ public class LevantamentoServiceImpl implements LevantamentoService {
     @Override
     @Transactional
     public Levantamento agendarVisita(Long projetoId, LocalDateTime dataAgendada) {
-        Projeto projeto = projetoRepository.findById(projetoId)
-                .orElseThrow(() -> new RegistroNaoEncontradoException("Projeto não encontrado."));
+        Projeto projeto = buscarProjeto(projetoId);
         Levantamento levantamento = levantamentoRepository.findByProjetoId(projetoId).orElse(null);
         if (projeto.getSituacao() != SituacaoProjeto.EM_LEVANTAMENTO) {
             throw new RegraNegocioException("A visita só pode ser agendada com o projeto em \""
@@ -105,5 +125,198 @@ public class LevantamentoServiceImpl implements LevantamentoService {
                 .map(e -> new DiaDaAgenda(e.getKey(), e.getKey().equals(hoje), e.getValue()))
                 .toList();
         return new AgendaSemanal(inicio, dias);
+    }
+
+    // ---------- Levantamento em campo (RF03) ----------
+
+    @Override
+    public boolean podePreencher(Projeto projeto) {
+        return projeto.getSituacao() == SituacaoProjeto.EM_LEVANTAMENTO;
+    }
+
+    @Override
+    @Transactional
+    public Levantamento salvar(Long projetoId, DadosLevantamento dados, List<FotoEnviada> fotos) {
+        Projeto projeto = buscarProjeto(projetoId);
+        if (!podePreencher(projeto)) {
+            throw new RegraNegocioException("O levantamento só pode ser alterado com o projeto em \""
+                    + SituacaoProjeto.EM_LEVANTAMENTO.getRotulo() + "\". O projeto " + projeto.getCodigo()
+                    + " está em \"" + projeto.getSituacao().getRotulo() + "\".");
+        }
+        conferirValores(dados);
+        // Todas as fotos são conferidas antes de gravar a primeira
+        List<TipoFoto> tipos = fotos.stream().map(LevantamentoServiceImpl::conferirFoto).toList();
+
+        Levantamento levantamento = levantamentoRepository.findByProjetoId(projetoId).orElseGet(() -> {
+            Levantamento novo = new Levantamento();
+            novo.setProjeto(projeto);
+            return novo;
+        });
+        levantamento.setDataVisita(dados.dataVisita() == null ? null : dados.dataVisita().truncatedTo(ChronoUnit.MINUTES));
+        levantamento.setCultura(texto(dados.cultura()));
+        levantamento.setAreaIrrigadaHa(dados.areaIrrigadaHa());
+        levantamento.setFonteAgua(dados.fonteAgua());
+        levantamento.setVazaoFonte(dados.vazaoFonte());
+        levantamento.setTopografia(texto(dados.topografia()));
+        levantamento.setLatitude(dados.latitude());
+        levantamento.setLongitude(dados.longitude());
+        for (int i = 0; i < fotos.size(); i++) {
+            levantamento.getFotos().add(gravarFoto(projetoId, fotos.get(i), tipos.get(i)));
+        }
+        return levantamentoRepository.save(levantamento);
+    }
+
+    @Override
+    public List<String> validarCamposObrigatorios(Levantamento levantamento) {
+        List<String> faltam = new ArrayList<>();
+        Levantamento l = levantamento == null ? new Levantamento() : levantamento;
+        if (l.getDataVisita() == null) {
+            faltam.add("data da visita");
+        }
+        if (vazio(l.getCultura())) {
+            faltam.add("cultura");
+        }
+        if (l.getAreaIrrigadaHa() == null) {
+            faltam.add("área irrigada");
+        }
+        if (l.getFonteAgua() == null) {
+            faltam.add("fonte de água");
+        }
+        if (l.getVazaoFonte() == null) {
+            faltam.add("vazão da fonte");
+        }
+        if (vazio(l.getTopografia())) {
+            faltam.add("topografia");
+        }
+        if (l.getLatitude() == null) {
+            faltam.add("latitude");
+        }
+        if (l.getLongitude() == null) {
+            faltam.add("longitude");
+        }
+        if (l.getFotos() == null || l.getFotos().isEmpty()) {
+            faltam.add("pelo menos uma foto");
+        }
+        return faltam;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> camposFaltantes(Long projetoId) {
+        return validarCamposObrigatorios(levantamentoRepository.findByProjetoId(projetoId).orElse(null));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FotoArmazenada foto(Long projetoId, int indice) {
+        List<String> fotos = levantamentoRepository.findByProjetoId(projetoId)
+                .map(Levantamento::getFotos)
+                .orElseThrow(() -> new RegistroNaoEncontradoException("Levantamento não encontrado."));
+        if (indice < 0 || indice >= fotos.size()) {
+            throw new RegistroNaoEncontradoException("Foto não encontrada.");
+        }
+        Path arquivo = pastaDeUploads.resolve(fotos.get(indice)).normalize();
+        Optional<TipoFoto> tipo = TipoFoto.pelaExtensao(arquivo.toString());
+        // O caminho vem do banco, mas a conferência garante que nada fora da pasta de uploads é servido
+        if (!arquivo.startsWith(pastaDeUploads) || tipo.isEmpty() || !Files.isRegularFile(arquivo)) {
+            throw new RegistroNaoEncontradoException("Foto não encontrada.");
+        }
+        return new FotoArmazenada(arquivo, tipo.get());
+    }
+
+    // ---------- Apoio ----------
+
+    private Projeto buscarProjeto(Long id) {
+        return projetoRepository.findById(id)
+                .orElseThrow(() -> new RegistroNaoEncontradoException("Projeto não encontrado."));
+    }
+
+    private static void conferirValores(DadosLevantamento dados) {
+        exigirPositivo(dados.areaIrrigadaHa(), "A área irrigada deve ser maior que zero.");
+        exigirPositivo(dados.vazaoFonte(), "A vazão da fonte deve ser maior que zero.");
+        if (dados.latitude() != null && (dados.latitude() < -90 || dados.latitude() > 90)) {
+            throw new RegraNegocioException("A latitude vai de -90 a 90.");
+        }
+        if (dados.longitude() != null && (dados.longitude() < -180 || dados.longitude() > 180)) {
+            throw new RegraNegocioException("A longitude vai de -180 a 180.");
+        }
+        if (dados.cultura() != null && dados.cultura().strip().length() > 80) {
+            throw new RegraNegocioException("A cultura pode ter até 80 caracteres.");
+        }
+        if (dados.topografia() != null && dados.topografia().strip().length() > 120) {
+            throw new RegraNegocioException("A topografia pode ter até 120 caracteres.");
+        }
+    }
+
+    private static void exigirPositivo(Double valor, String mensagem) {
+        if (valor != null && valor <= 0) {
+            throw new RegraNegocioException(mensagem);
+        }
+    }
+
+    /** JPEG ou PNG pelos primeiros bytes, com até 5 MB. */
+    private static TipoFoto conferirFoto(FotoEnviada foto) {
+        String nome = nomeParaMensagem(foto.nomeOriginal());
+        if (foto.conteudo() == null || foto.conteudo().length == 0) {
+            throw new RegraNegocioException("A foto " + nome + " está vazia.");
+        }
+        if (foto.conteudo().length > TAMANHO_MAXIMO_FOTO) {
+            throw new RegraNegocioException("A foto " + nome + " passa de 5 MB.");
+        }
+        return TipoFoto.detectar(foto.conteudo())
+                .orElseThrow(() -> new RegraNegocioException("O arquivo " + nome + " não é uma foto JPEG nem PNG."));
+    }
+
+    /**
+     * Grava a foto com nome UUID e devolve o caminho relativo à pasta de uploads, com barras
+     * normais, que é o que vai para o banco.
+     */
+    private String gravarFoto(Long projetoId, FotoEnviada foto, TipoFoto tipo) {
+        String relativo = PASTA_LEVANTAMENTO + "/" + projetoId + "/" + UUID.randomUUID() + "." + tipo.getExtensao();
+        Path destino = pastaDeUploads.resolve(relativo).normalize();
+        try {
+            Files.createDirectories(destino.getParent());
+            Files.write(destino, foto.conteudo());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Não foi possível gravar a foto do levantamento.", e);
+        }
+        apagarSeATransacaoForDesfeita(destino);
+        return relativo;
+    }
+
+    private static void apagarSeATransacaoForDesfeita(Path arquivo) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    try {
+                        Files.deleteIfExists(arquivo);
+                    } catch (IOException e) {
+                        // Sobra um arquivo sem registro, que não aparece em lugar nenhum
+                    }
+                }
+            }
+        });
+    }
+
+    /** Só o nome do arquivo, sem pasta, com no máximo 60 caracteres. */
+    private static String nomeParaMensagem(String nomeOriginal) {
+        if (nomeOriginal == null || nomeOriginal.isBlank()) {
+            return "sem nome";
+        }
+        String nome = nomeOriginal.replace('\\', '/');
+        nome = nome.substring(nome.lastIndexOf('/') + 1);
+        return "\"" + (nome.length() > 60 ? nome.substring(0, 60) + "..." : nome) + "\"";
+    }
+
+    private static String texto(String valor) {
+        return vazio(valor) ? null : valor.strip();
+    }
+
+    private static boolean vazio(String valor) {
+        return valor == null || valor.isBlank();
     }
 }

@@ -79,25 +79,139 @@
                     <div class="tab-pane fade show active" id="aba-levantamento" role="tabpanel"
                         aria-labelledby="aba-levantamento-tab">
                         <h2 class="h5">Visita técnica</h2>
-                        <p th:if="${levantamento == null}" class="text-muted">A visita ainda não foi agendada.</p>
-                        <dl th:if="${levantamento != null}" class="mb-3">
-                            <dt>Agendada para</dt>
-                            <dd th:text="${#strings.capitalize(#temporals.format(levantamento.dataAgendada, 'EEEE, dd/MM/yyyy ''às'' HH:mm'))}">
-                                Sexta-feira, 20/11/2026 às 08:30</dd>
-                            <th:block th:if="${levantamento.dataVisita != null}">
+                        <p th:if="${levantamento == null or levantamento.dataAgendada == null}" class="text-muted">
+                            A visita ainda não foi agendada.</p>
+                        <dl th:if="${levantamento != null}" class="row mb-3 dados-projeto">
+                            <div class="col-12 col-sm-6" th:if="${levantamento.dataAgendada != null}">
+                                <dt>Agendada para</dt>
+                                <dd th:text="${#strings.capitalize(#temporals.format(levantamento.dataAgendada, 'EEEE, dd/MM/yyyy ''às'' HH:mm'))}">
+                                    Sexta-feira, 20/11/2026 às 08:30</dd>
+                            </div>
+                            <div class="col-12 col-sm-6" th:if="${levantamento.dataVisita != null}">
                                 <dt>Realizada em</dt>
                                 <dd th:text="${#temporals.format(levantamento.dataVisita, 'dd/MM/yyyy HH:mm')}">20/11/2026 08:45</dd>
-                            </th:block>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <dt>Cultura</dt>
+                                <dd th:text="${levantamento.cultura} ?: '—'">Café</dd>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <dt>Área irrigada</dt>
+                                <dd th:text="${levantamento.areaIrrigadaHa != null} ? |${#numbers.formatDecimal(levantamento.areaIrrigadaHa, 1, 'POINT', 2, 'COMMA')} ha| : '—'">12,50 ha</dd>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <dt>Fonte de água</dt>
+                                <dd th:text="${levantamento.fonteAgua != null} ? ${levantamento.fonteAgua.rotulo} : '—'">Poço artesiano</dd>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <dt>Vazão da fonte</dt>
+                                <dd th:text="${levantamento.vazaoFonte != null} ? |${#numbers.formatDecimal(levantamento.vazaoFonte, 1, 'POINT', 2, 'COMMA')} m³/h| : '—'">8,00 m³/h</dd>
+                            </div>
+                            <div class="col-12">
+                                <dt>Topografia</dt>
+                                <dd th:text="${levantamento.topografia} ?: '—'">Plana</dd>
+                            </div>
+                            <div class="col-12">
+                                <dt>Coordenada</dt>
+                                <dd th:if="${levantamento.latitude != null and levantamento.longitude != null}">
+                                    <span th:text="|${levantamento.latitude}, ${levantamento.longitude}|">-18.9113, -48.2622</span>
+                                    <a th:href="@{https://www.google.com/maps(q=${levantamento.latitude + ',' + levantamento.longitude})}"
+                                        target="_blank" rel="noopener" class="ms-2">
+                                        <i class="fas fa-map-location-dot me-1"></i>Abrir no mapa
+                                    </a>
+                                </dd>
+                                <dd th:unless="${levantamento.latitude != null and levantamento.longitude != null}">—</dd>
+                            </div>
                         </dl>
-                        <a th:if="${podeAgendarVisita}"
-                            sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')"
-                            th:href="@{/comercial/projetos/{id}/visita(id=${projeto.id})}" class="btn btn-primary">
-                            <i class="fas fa-calendar-plus me-2"></i><span
-                                th:text="${levantamento == null} ? 'Agendar visita' : 'Reagendar visita'">Agendar visita</span>
-                        </a>
+                        <div th:if="${levantamento != null and !#lists.isEmpty(levantamento.fotos)}" class="galeria-fotos mb-3">
+                            <a th:each="foto, st : ${levantamento.fotos}" target="_blank" rel="noopener"
+                                th:href="@{/projetos/{id}/levantamento/fotos/{i}(id=${projeto.id},i=${st.index})}">
+                                <img th:src="@{/projetos/{id}/levantamento/fotos/{i}(id=${projeto.id},i=${st.index})}"
+                                    th:alt="|Foto ${st.count} do levantamento|" loading="lazy">
+                            </a>
+                        </div>
+
+                        <!-- G1 (RF04): o que falta para liberar o dimensionamento -->
+                        <div th:if="${podePreencherLevantamento and !#lists.isEmpty(faltantes)}" class="alert alert-warning">
+                            <div class="fw-semibold mb-1">Levantamento incompleto. Falta:</div>
+                            <ul class="mb-0 ps-3">
+                                <li th:each="item : ${faltantes}" th:text="${item}">cultura</li>
+                            </ul>
+                        </div>
+                        <div th:if="${podeDimensionar}" class="alert alert-success">
+                            Levantamento completo: o dimensionamento está liberado.
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <a th:if="${podeAgendarVisita}"
+                                sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')"
+                                th:href="@{/comercial/projetos/{id}/visita(id=${projeto.id})}" class="btn btn-primary">
+                                <i class="fas fa-calendar-plus me-2"></i><span
+                                    th:text="${levantamento == null or levantamento.dataAgendada == null} ? 'Agendar visita' : 'Reagendar visita'">Agendar visita</span>
+                            </a>
+                            <a th:if="${podePreencherLevantamento}"
+                                sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')"
+                                th:href="@{/campo/projetos/{id}/levantamento(id=${projeto.id})}" class="btn btn-primary">
+                                <i class="fas fa-clipboard-list me-2"></i>Preencher levantamento
+                            </a>
+                        </div>
                     </div>
                     <div class="tab-pane fade" id="aba-lista" role="tabpanel" aria-labelledby="aba-lista-tab">
-                        <p class="text-muted mb-0">Nenhum item na lista técnica.</p>
+                        <h2 class="h5">Parâmetros de projeto</h2>
+                        <dl class="row dados-projeto">
+                            <div class="col-4">
+                                <dt>Pressão</dt>
+                                <dd th:text="${projeto.pressaoProjetoMca != null} ? |${#numbers.formatDecimal(projeto.pressaoProjetoMca, 1, 'POINT', 2, 'COMMA')} mca| : 'não informada'">30,00 mca</dd>
+                            </div>
+                            <div class="col-4">
+                                <dt>Vazão</dt>
+                                <dd th:text="${projeto.vazaoProjetoM3h != null} ? |${#numbers.formatDecimal(projeto.vazaoProjetoM3h, 1, 'POINT', 2, 'COMMA')} m³/h| : 'não informada'">6,00 m³/h</dd>
+                            </div>
+                            <div class="col-4">
+                                <dt>Tolerância</dt>
+                                <dd th:text="|${#numbers.formatDecimal(projeto.toleranciaPercentual, 1, 'POINT', 1, 'COMMA')}%|">2,0%</dd>
+                            </div>
+                        </dl>
+
+                        <p th:if="${#lists.isEmpty(itens)}" class="text-muted">Nenhum item na lista técnica.</p>
+                        <div th:unless="${#lists.isEmpty(itens)}" class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Material</th>
+                                        <th scope="col" class="text-end">Quantidade</th>
+                                        <th scope="col" class="text-end">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="i : ${itens}">
+                                        <td>
+                                            <span class="fw-semibold" th:text="${i.material.codigo}">TB-PVC-050</span>
+                                            <span class="small text-muted" th:text="${i.material.descricao}">Tubo PVC</span>
+                                        </td>
+                                        <td class="text-end text-nowrap"
+                                            th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadePrevista)} ${i.material.unidade}|">10 barra</td>
+                                        <td class="text-end text-nowrap"
+                                            th:text="${i.material.precoVenda != null} ? |R$ ${#numbers.formatDecimal(i.quantidadePrevista.multiply(i.material.precoVenda), 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 629,00</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th scope="row" colspan="2" class="text-end">Total estimado (preço de venda atual)</th>
+                                        <td class="text-end text-nowrap fw-bold"
+                                            th:text="|R$ ${#numbers.formatDecimal(total, 1, 'POINT', 2, 'COMMA')}|">R$ 629,00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <p th:if="${podePreencherLevantamento and !podeDimensionar}" class="text-muted small">
+                            O dimensionamento é liberado quando o levantamento estiver completo.
+                        </p>
+                        <a th:if="${podeDimensionar}" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')"
+                            th:href="@{/engenharia/projetos/{id}/dimensionamento(id=${projeto.id})}" class="btn btn-primary">
+                            <i class="fas fa-compass-drafting me-2"></i>Dimensionar e montar a lista
+                        </a>
                     </div>
                     <div class="tab-pane fade" id="aba-proposta" role="tabpanel" aria-labelledby="aba-proposta-tab">
                         <p class="text-muted mb-0">Nenhuma proposta.</p>

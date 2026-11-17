@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import br.edu.iftm.irrigacao.dominio.RegistroNaoEncontradoException;
@@ -35,6 +36,18 @@ public class TratadorDeErros {
     public String regraNegocio(RegraNegocioException excecao, HttpServletRequest request,
             RedirectAttributes redirect) {
         redirect.addFlashAttribute("erro", excecao.getMessage());
+        return "redirect:" + paginaAnterior(request);
+    }
+
+    /**
+     * Envio maior que o limite do servidor ({@code spring.servlet.multipart.*}): volta para a
+     * página de onde o usuário veio. O limite de cada foto, 5 MB, é conferido antes pela tela e pelo
+     * service; este é o teto da requisição.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public String envioGrandeDemais(HttpServletRequest request, RedirectAttributes redirect) {
+        redirect.addFlashAttribute("erro", "O envio passou do tamanho máximo. Cada foto pode ter até 5 MB; "
+                + "se forem muitas, envie em partes.");
         return "redirect:" + paginaAnterior(request);
     }
 

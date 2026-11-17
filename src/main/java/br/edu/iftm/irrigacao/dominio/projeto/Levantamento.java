@@ -17,6 +17,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
@@ -28,7 +29,9 @@ import jakarta.validation.constraints.NotNull;
  * campos são anuláveis no banco, e a obrigatoriedade é conferida pelo service antes de o projeto
  * sair de EM_LEVANTAMENTO (RF04, G1).
  *
- * <p>{@code fotos} guarda o caminho de cada arquivo dentro da pasta {@code irrigacao.upload.dir}.
+ * <p>{@code fotos} guarda o caminho de cada arquivo dentro da pasta {@code irrigacao.upload.dir},
+ * na ordem de envio (coluna {@code ordem}), porque a foto é servida pela posição na lista.
+ * {@code vazaoFonte} é em m³/h. {@code topografia} é um acréscimo à Figura 10 (ver docs/modelo.md).
  */
 @Entity
 @Table(name = "levantamento",
@@ -64,8 +67,12 @@ public class Levantamento extends EntidadeAuditada {
     @Column(name = "vazao_fonte")
     private Double vazaoFonte;
 
+    @Column(name = "topografia", length = 120)
+    private String topografia;
+
     @ElementCollection
     @CollectionTable(name = "levantamento_foto", joinColumns = @JoinColumn(name = "levantamento_id"))
+    @OrderColumn(name = "ordem")
     @Column(name = "caminho", nullable = false, length = 255)
     private List<String> fotos = new ArrayList<>();
 
@@ -79,7 +86,7 @@ public class Levantamento extends EntidadeAuditada {
     }
 
     public Levantamento(Long id, Projeto projeto, LocalDateTime dataAgendada, LocalDateTime dataVisita,
-            String cultura, Double areaIrrigadaHa, TipoFonteAgua fonteAgua, Double vazaoFonte,
+            String cultura, Double areaIrrigadaHa, TipoFonteAgua fonteAgua, Double vazaoFonte, String topografia,
             List<String> fotos, Double latitude, Double longitude) {
         this.id = id;
         this.projeto = projeto;
@@ -89,6 +96,7 @@ public class Levantamento extends EntidadeAuditada {
         this.areaIrrigadaHa = areaIrrigadaHa;
         this.fonteAgua = fonteAgua;
         this.vazaoFonte = vazaoFonte;
+        this.topografia = topografia;
         this.fotos = fotos;
         this.latitude = latitude;
         this.longitude = longitude;
@@ -156,6 +164,14 @@ public class Levantamento extends EntidadeAuditada {
 
     public void setVazaoFonte(Double vazaoFonte) {
         this.vazaoFonte = vazaoFonte;
+    }
+
+    public String getTopografia() {
+        return topografia;
+    }
+
+    public void setTopografia(String topografia) {
+        this.topografia = topografia;
     }
 
     public List<String> getFotos() {
