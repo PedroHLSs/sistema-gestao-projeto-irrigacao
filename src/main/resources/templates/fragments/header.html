@@ -35,6 +35,13 @@
                         <li class="nav-item" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
                             <a class="nav-link" th:href="@{/comercial/produtores}"><i class="fas fa-handshake me-2"></i>Comercial</a>
                         </li>
+                        <!-- O badge é o alertarVencimento() da Figura 9: propostas enviadas do usuário perto de vencer -->
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
+                            <a class="nav-link" th:href="@{/comercial/propostas}"><i class="fas fa-file-signature me-2"></i>Propostas<span
+                                    th:if="${propostasVencendo != null and propostasVencendo > 0}"
+                                    class="badge rounded-pill text-bg-warning ms-1" th:text="${propostasVencendo}"
+                                    th:title="|${propostasVencendo} proposta(s) enviada(s) perto de vencer|">2</span></a>
+                        </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
                             <a class="nav-link" href="#"><i class="fas fa-compass-drafting me-2"></i>Engenharia</a>
                         </li>
@@ -48,7 +55,7 @@
                             <a class="nav-link" href="#"><i class="fas fa-file-invoice-dollar me-2"></i>Financeiro</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" href="#"><i class="fas fa-chart-line me-2"></i>Diretoria</a>
+                            <a class="nav-link" th:href="@{/diretoria/aprovacoes}"><i class="fas fa-chart-line me-2"></i>Diretoria</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
                             <a class="nav-link" th:href="@{/admin/usuarios}"><i class="fas fa-users-gear me-2"></i>Usuários</a>

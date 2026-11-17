@@ -64,6 +64,7 @@ Ficam em `src/main/resources/application.properties`:
 |---|---|
 | `irrigacao.proposta.validade-dias` | validade padrão da proposta, em dias |
 | `irrigacao.proposta.dias-alerta` | quantos dias antes do vencimento a proposta entra em alerta |
+| `irrigacao.proposta.verificacao-cron` | quando as propostas enviadas que passaram da validade são vencidas (padrão: todo dia às 6h; `-` desliga) |
 | `irrigacao.alcada-desconto.vendedor` | desconto máximo, em %, que o vendedor dá sem a diretoria |
 | `irrigacao.mao-obra.preco-hora` | preço de venda da hora de mão de obra, em R$ |
 | `irrigacao.mao-obra.custo-hora` | custo da hora de mão de obra, em R$ |

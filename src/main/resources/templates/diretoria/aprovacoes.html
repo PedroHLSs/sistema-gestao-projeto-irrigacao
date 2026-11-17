@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Descontos acima da alçada esperando a diretoria (RF10, G2) -->
+<head th:replace="~{fragments/head :: head('Aprovações de desconto')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Aprovações de desconto</h1>
+        <p class="text-muted">
+            Alçada do vendedor: <span th:text="|${#numbers.formatDecimal(parametros.alcadaVendedor, 1, 'POINT', 2, 'COMMA')}%|">5,00%</span>
+            de desconto. Acima disso, a proposta só é enviada ao cliente com a sua aprovação.
+        </p>
+
+        <p th:if="${#lists.isEmpty(pendentes)}" class="alert alert-success">Nenhum desconto esperando aprovação.</p>
+
+        <section th:each="p : ${pendentes}" class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                    <div>
+                        <a th:href="@{/comercial/propostas/{id}(id=${p.id})}" class="fw-semibold"
+                            th:text="|${p.projeto.codigo} · proposta nº ${p.numero}|">PRJ-2026-0001 · proposta nº 1</a>
+                        <div class="text-muted small"
+                            th:text="|${p.projeto.propriedade.produtor.nome} · vendedor: ${p.projeto.responsavel.nome}|">Produtor · vendedor</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fs-5 fw-bold"
+                            th:text="|${#numbers.formatDecimal(p.percentualDesconto, 1, 'POINT', 2, 'COMMA')}% de desconto|">7,50% de desconto</div>
+                        <div class="small" th:text="|Total com desconto: R$ ${#numbers.formatDecimal(p.valorTotal, 1, 'POINT', 2, 'COMMA')}|">Total</div>
+                        <div class="small text-muted" th:text="|Custo orçado: R$ ${#numbers.formatDecimal(p.projeto.custoOrcado, 1, 'POINT', 2, 'COMMA')}|">Custo</div>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <form th:action="@{/diretoria/aprovacoes/{id}/aprovar(id=${p.id})}" method="post">
+                            <label th:for="|observacao-${p.id}|" class="form-label small">Observação para o vendedor (opcional)</label>
+                            <input type="text" th:id="|observacao-${p.id}|" name="observacao" class="form-control mb-2" maxlength="500">
+                            <button type="submit" class="btn btn-success"><i class="fas fa-check me-2"></i>Aprovar desconto</button>
+                        </form>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <form th:action="@{/diretoria/aprovacoes/{id}/negar(id=${p.id})}" method="post">
+                            <label th:for="|motivo-${p.id}|" class="form-label small">Motivo da negativa</label>
+                            <input type="text" th:id="|motivo-${p.id}|" name="motivo" class="form-control mb-2" maxlength="500" required>
+                            <button type="submit" class="btn btn-outline-danger"><i class="fas fa-xmark me-2"></i>Negar desconto</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import br.edu.iftm.irrigacao.dominio.comercial.PropostaService;
 import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
 import br.edu.iftm.irrigacao.dominio.estoque.ListaTecnicaService;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoArmazenada;
@@ -42,12 +43,14 @@ public class ProjetoController {
     private final ProjetoService projetoService;
     private final LevantamentoService levantamentoService;
     private final ListaTecnicaService listaTecnicaService;
+    private final PropostaService propostaService;
 
     public ProjetoController(ProjetoService projetoService, LevantamentoService levantamentoService,
-            ListaTecnicaService listaTecnicaService) {
+            ListaTecnicaService listaTecnicaService, PropostaService propostaService) {
         this.projetoService = projetoService;
         this.levantamentoService = levantamentoService;
         this.listaTecnicaService = listaTecnicaService;
+        this.propostaService = propostaService;
     }
 
     /**
@@ -80,6 +83,11 @@ public class ProjetoController {
         model.addAttribute("podeAgendarVisita", levantamentoService.podeAgendarVisita(projeto, levantamento));
         model.addAttribute("podePreencherLevantamento", podePreencher);
         model.addAttribute("podeDimensionar", podePreencher && faltantes.isEmpty());
+        // Aba Proposta (RF09 a RF12): todas as versões e o que dá para fazer agora
+        boolean orcando = projeto.getSituacao() == SituacaoProjeto.ORCANDO;
+        model.addAttribute("propostas", propostaService.listarDoProjeto(id));
+        model.addAttribute("orcando", orcando);
+        model.addAttribute("podeGerarOrcamento", orcando && propostaService.abertaDoProjeto(id).isEmpty());
         return "projetos/detalheProjeto";
     }
 

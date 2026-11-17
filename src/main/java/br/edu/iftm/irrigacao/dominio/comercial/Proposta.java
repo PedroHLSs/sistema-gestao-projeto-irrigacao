@@ -24,9 +24,11 @@ import jakarta.validation.constraints.NotNull;
  * Proposta comercial. Faz o papel de orçamento: cada versão do orçamento de um projeto é uma
  * proposta, numerada dentro do projeto (RF09).
  *
- * <p>{@code aprovadoPor} guarda quem da diretoria aprovou o desconto acima da alçada (RF10).
- * {@code dataEnvio} e {@code validadeDias} dão o vencimento (RF11), {@code situacao} registra a
- * resposta do cliente (RF12) e {@code horasPrevistas} entra no orçado x realizado (RF22).
+ * <p>{@code aprovadoPor} guarda quem da diretoria aprovou o desconto acima da alçada e
+ * {@code observacaoDiretoria}, um acréscimo à Figura 10, o texto da resposta: na negativa, o motivo
+ * mostrado ao vendedor (RF10). {@code dataEnvio} e {@code validadeDias} dão o vencimento (RF11),
+ * {@code situacao} registra a resposta do cliente (RF12) e {@code horasPrevistas} entra no orçado x
+ * realizado (RF22).
  */
 @Entity
 @Table(name = "proposta",
@@ -73,12 +75,15 @@ public class Proposta extends EntidadeAuditada {
     @JoinColumn(name = "aprovado_por_id")
     private Usuario aprovadoPor;
 
+    @Column(name = "observacao_diretoria", length = 500)
+    private String observacaoDiretoria;
+
     public Proposta() {
     }
 
     public Proposta(Long id, Projeto projeto, Integer numero, BigDecimal valorTotal,
             BigDecimal percentualDesconto, LocalDate dataEnvio, Integer validadeDias,
-            SituacaoProposta situacao, BigDecimal horasPrevistas, Usuario aprovadoPor) {
+            SituacaoProposta situacao, BigDecimal horasPrevistas, Usuario aprovadoPor, String observacaoDiretoria) {
         this.id = id;
         this.projeto = projeto;
         this.numero = numero;
@@ -89,6 +94,27 @@ public class Proposta extends EntidadeAuditada {
         this.situacao = situacao;
         this.horasPrevistas = horasPrevistas;
         this.aprovadoPor = aprovadoPor;
+        this.observacaoDiretoria = observacaoDiretoria;
+    }
+
+    /**
+     * Último dia em que a proposta vale: {@code dataEnvio + validadeDias}, calculado (RF11). A
+     * proposta enviada em 16/11 com 15 dias vale até 01/12, inclusive, e vence em 02/12. Vazio
+     * enquanto a proposta não foi enviada.
+     */
+    public LocalDate getDataValidade() {
+        if (dataEnvio == null || validadeDias == null) {
+            return null;
+        }
+        return dataEnvio.plusDays(validadeDias);
+    }
+
+    public String getObservacaoDiretoria() {
+        return observacaoDiretoria;
+    }
+
+    public void setObservacaoDiretoria(String observacaoDiretoria) {
+        this.observacaoDiretoria = observacaoDiretoria;
     }
 
     public Long getId() {

@@ -8,6 +8,10 @@
     -->
     <span th:fragment="badge(situacao)" class="badge badge-situacao"
         th:classappend="${'situacao-' + situacao.name()}" th:text="${situacao.rotulo}">Em levantamento</span>
+
+    <!-- Situação da proposta, com as cores em proposta-NOME_DO_VALOR no app.css -->
+    <span th:fragment="badgeProposta(situacao)" class="badge badge-situacao"
+        th:classappend="${'proposta-' + situacao.name()}" th:text="${situacao.rotulo}">Em elaboração</span>
 </body>
 
 </html>

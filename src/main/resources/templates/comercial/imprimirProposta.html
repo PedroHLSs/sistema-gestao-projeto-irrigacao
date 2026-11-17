@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Proposta para imprimir ou salvar em PDF (RF11). O @media print do app.css esconde menu, rodapé e botões. -->
+<head th:replace="~{fragments/head :: head(|Proposta ${proposta.numero} · ${proposta.projeto.codigo}|)}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4 proposta-impressa" th:with="projeto=${proposta.projeto}">
+        <div class="d-flex justify-content-between align-items-center mb-3 nao-imprimir">
+            <a th:href="@{/comercial/propostas/{id}(id=${proposta.id})}" class="btn btn-outline-secondary">Voltar</a>
+            <button type="button" class="btn btn-primary" data-imprimir>
+                <i class="fas fa-print me-2"></i>Imprimir ou salvar em PDF
+            </button>
+        </div>
+
+        <h1 class="h3 mb-1">Proposta comercial</h1>
+        <p class="text-muted mb-4" th:text="|Projeto ${projeto.codigo}, proposta nº ${proposta.numero}|">Projeto PRJ-2026-0001, proposta nº 1</p>
+
+        <div class="row mb-4">
+            <div class="col-6">
+                <h2 class="h6 text-uppercase text-muted">Produtor</h2>
+                <div class="fw-semibold" th:text="${projeto.propriedade.produtor.nome}">João Batista Ferreira</div>
+                <div th:text="${T(br.edu.iftm.irrigacao.dominio.comercial.CpfCnpj).formatar(projeto.propriedade.produtor.cpfCnpj)}">529.982.247-25</div>
+            </div>
+            <div class="col-6">
+                <h2 class="h6 text-uppercase text-muted">Propriedade</h2>
+                <div class="fw-semibold" th:text="${projeto.propriedade.nome}">Fazenda Boa Vista</div>
+                <div th:text="${projeto.propriedade.municipio}">Uberlândia</div>
+            </div>
+        </div>
+
+        <table th:replace="~{comercial/fragmentosOrcamento :: tabela(${detalhe}, false)}"></table>
+
+        <div class="mt-4">
+            <p class="mb-1" th:if="${proposta.dataEnvio != null}"
+                th:text="|Proposta enviada em ${#temporals.format(proposta.dataEnvio, 'dd/MM/yyyy')}, válida até ${#temporals.format(proposta.dataValidade, 'dd/MM/yyyy')}.|">
+                Proposta enviada em 16/11/2026, válida até 01/12/2026.</p>
+            <p class="mb-1" th:unless="${proposta.dataEnvio != null}"
+                th:text="|Validade de ${validadeDias} dias a partir do envio.|">Validade de 15 dias a partir do envio.</p>
+            <p class="mb-0" th:text="|Responsável: ${projeto.responsavel.nome}|">Responsável: Ana Vendedora</p>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

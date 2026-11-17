@@ -7,6 +7,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import br.edu.iftm.irrigacao.dominio.acesso.UsuarioService;
+import br.edu.iftm.irrigacao.dominio.comercial.PropostaService;
 
 /**
  * Services mockados para os testes {@code @WebMvcTest}, que carregam só a camada web. Junto com
@@ -24,6 +25,12 @@ public class TestConfig {
     @Bean
     public UserDetailsService userDetailsService() {
         return Mockito.mock(UserDetailsService.class);
+    }
+
+    /** Usado pelo {@code AlertaPropostasAdvice}, que vale para todos os controllers. */
+    @Bean
+    public PropostaService propostaService() {
+        return Mockito.mock(PropostaService.class);
     }
 
     @Bean

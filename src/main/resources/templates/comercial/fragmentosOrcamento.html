@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!--
+        Tabela do orçamento (RF09): itens, mão de obra, desconto e total. Usada na prévia (com custo,
+        comCusto = true), na página da proposta e na impressão (só os valores de venda).
+    -->
+    <table th:fragment="tabela(orcamento, comCusto)" class="table align-middle mb-0 tabela-orcamento">
+        <thead>
+            <tr>
+                <th scope="col">Material</th>
+                <th scope="col" class="text-end">Quantidade</th>
+                <th scope="col" class="text-end">Preço unitário</th>
+                <th scope="col" class="text-end">Subtotal</th>
+                <th scope="col" class="text-end" th:if="${comCusto}">Custo unitário</th>
+                <th scope="col" class="text-end" th:if="${comCusto}">Custo</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="l : ${orcamento.linhas}">
+                <td>
+                    <span class="fw-semibold" th:text="${l.item.material.codigo}">TB-PVC-050</span>
+                    <span th:text="${l.item.material.descricao}">Tubo PVC</span>
+                    <span th:if="${comCusto and l.faltante.signum() > 0}" class="badge text-bg-warning ms-1"
+                        th:text="|faltam ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(l.faltante)}|">faltam 300</span>
+                </td>
+                <td class="text-end text-nowrap"
+                    th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(l.quantidade)} ${l.item.material.unidade}|">20 barra</td>
+                <td class="text-end text-nowrap"
+                    th:text="|R$ ${#numbers.formatDecimal(l.precoUnitario, 1, 'POINT', 2, 'COMMA')}|">R$ 62,90</td>
+                <td class="text-end text-nowrap"
+                    th:text="|R$ ${#numbers.formatDecimal(l.subtotal, 1, 'POINT', 2, 'COMMA')}|">R$ 1.258,00</td>
+                <td class="text-end text-nowrap" th:if="${comCusto}">
+                    <span th:text="|R$ ${#numbers.formatDecimal(l.custoUnitario, 1, 'POINT', 2, 'COMMA')}|">R$ 44,80</span>
+                    <div class="small text-muted" th:text="${l.origemDoCusto}">cadastro</div>
+                </td>
+                <td class="text-end text-nowrap" th:if="${comCusto}"
+                    th:text="|R$ ${#numbers.formatDecimal(l.subtotalCusto, 1, 'POINT', 2, 'COMMA')}|">R$ 896,00</td>
+            </tr>
+            <tr>
+                <td>Mão de obra</td>
+                <td class="text-end text-nowrap"
+                    th:text="|${#numbers.formatDecimal(orcamento.horasPrevistas, 1, 'POINT', 2, 'COMMA')} h|">10,00 h</td>
+                <td class="text-end text-nowrap"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.precoHora, 1, 'POINT', 2, 'COMMA')}|">R$ 85,00</td>
+                <td class="text-end text-nowrap"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.valorMaoDeObra, 1, 'POINT', 2, 'COMMA')}|">R$ 850,00</td>
+                <td class="text-end text-nowrap" th:if="${comCusto}"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.custoHora, 1, 'POINT', 2, 'COMMA')}|">R$ 45,00</td>
+                <td class="text-end text-nowrap" th:if="${comCusto}"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.horasPrevistas.multiply(orcamento.custoHora), 1, 'POINT', 2, 'COMMA')}|">R$ 450,00</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <th scope="row" colspan="3" class="text-end">Subtotal</th>
+                <td class="text-end text-nowrap"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.subtotal, 1, 'POINT', 2, 'COMMA')}|">R$ 2.488,00</td>
+                <td th:if="${comCusto}" colspan="2"></td>
+            </tr>
+            <tr>
+                <th scope="row" colspan="3" class="text-end"
+                    th:text="|Desconto de ${#numbers.formatDecimal(orcamento.percentualDesconto, 1, 'POINT', 2, 'COMMA')}%|">Desconto de 5,00%</th>
+                <td class="text-end text-nowrap"
+                    th:text="|- R$ ${#numbers.formatDecimal(orcamento.valorDesconto, 1, 'POINT', 2, 'COMMA')}|">- R$ 124,40</td>
+                <td th:if="${comCusto}" colspan="2"></td>
+            </tr>
+            <tr class="fw-bold">
+                <th scope="row" colspan="3" class="text-end">Total</th>
+                <td class="text-end text-nowrap"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.valorTotal, 1, 'POINT', 2, 'COMMA')}|">R$ 2.363,60</td>
+                <th scope="row" th:if="${comCusto}" class="text-end">Custo orçado</th>
+                <td class="text-end text-nowrap" th:if="${comCusto}"
+                    th:text="|R$ ${#numbers.formatDecimal(orcamento.custoOrcado, 1, 'POINT', 2, 'COMMA')}|">R$ 1.526,00</td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Proposta (RF09 a RF12): dados, itens com o preço congelado e as ações que a situação permite -->
+<head th:replace="~{fragments/head :: head(|Proposta ${proposta.numero}|)}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4" th:with="projeto=${proposta.projeto}">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 page-title">
+            <h1 class="h2 mb-0 me-2" th:text="|Proposta ${proposta.numero}|">Proposta 1</h1>
+            <span th:replace="~{fragments/situacao :: badgeProposta(${proposta.situacao})}"></span>
+        </div>
+        <p class="mb-3">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            · <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda</span>
+        </p>
+
+        <!-- Situação da alçada e da validade -->
+        <div th:if="${negada}" class="alert alert-danger">
+            <div class="fw-semibold">A diretoria negou o desconto. Motivo:</div>
+            <div th:text="${proposta.observacaoDiretoria}">Margem baixa.</div>
+        </div>
+        <div th:if="${proposta.aprovadoPor != null}" class="alert alert-success">
+            Desconto aprovado por <strong th:text="${proposta.aprovadoPor.nome}">Diana</strong>.
+            <span th:if="${proposta.observacaoDiretoria != null}" th:text="${proposta.observacaoDiretoria}">Observação.</span>
+        </div>
+        <div th:if="${proposta.situacao.name() == 'AGUARDANDO_DIRETORIA'}" class="alert alert-info">
+            O desconto está com a diretoria. A proposta volta para você aprovada ou com o motivo da negativa.
+        </div>
+        <div th:if="${vencida}" class="alert alert-warning">
+            A validade terminou em <span th:text="${#temporals.format(proposta.dataValidade, 'dd/MM/yyyy')}">01/12/2026</span>.
+            A aprovação do cliente não pode mais ser registrada; abra a lista de propostas para gerar a nova versão.
+        </div>
+
+        <dl class="row dados-projeto mb-3">
+            <div class="col-6 col-md-3">
+                <dt>Valor total</dt>
+                <dd class="fs-5 fw-bold" th:text="|R$ ${#numbers.formatDecimal(proposta.valorTotal, 1, 'POINT', 2, 'COMMA')}|">R$ 2.363,60</dd>
+            </div>
+            <div class="col-6 col-md-3">
+                <dt>Desconto</dt>
+                <dd th:text="|${#numbers.formatDecimal(proposta.percentualDesconto, 1, 'POINT', 2, 'COMMA')}% (alçada ${#numbers.formatDecimal(parametros.alcadaVendedor, 1, 'POINT', 2, 'COMMA')}%)|">5,00%</dd>
+            </div>
+            <div class="col-6 col-md-3">
+                <dt>Custo orçado do projeto</dt>
+                <dd th:text="${projeto.custoOrcado != null} ? |R$ ${#numbers.formatDecimal(projeto.custoOrcado, 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 1.526,00</dd>
+            </div>
+            <div class="col-6 col-md-3">
+                <dt>Validade</dt>
+                <dd th:if="${proposta.dataEnvio != null}"
+                    th:text="|Enviada em ${#temporals.format(proposta.dataEnvio, 'dd/MM/yyyy')}, vale até ${#temporals.format(proposta.dataValidade, 'dd/MM/yyyy')}|">
+                    Enviada em 16/11/2026, vale até 01/12/2026</dd>
+                <dd th:unless="${proposta.dataEnvio != null}" th:text="|${proposta.validadeDias} dias a partir do envio|">15 dias a partir do envio</dd>
+            </div>
+        </dl>
+
+        <!-- Itens com o preço congelado -->
+        <div th:if="${detalhe != null}" class="table-responsive bg-white border rounded shadow-sm mb-3">
+            <table th:replace="~{comercial/fragmentosOrcamento :: tabela(${detalhe}, false)}"></table>
+        </div>
+        <p th:if="${detalhe == null}" class="text-muted">
+            Os preços por item desta versão não ficam guardados: vale o valor total gravado. Os itens aparecem na versão
+            atual da proposta.
+        </p>
+
+        <!-- Ações da proposta em elaboração -->
+        <div th:if="${emElaboracao}" class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h2 class="h5">Horas e desconto</h2>
+                <form th:action="@{/comercial/propostas/{id}(id=${proposta.id})}" th:object="${orcamento}" method="post"
+                    novalidate class="row g-3 align-items-end">
+                    <div class="col-6 col-md-3">
+                        <label for="horasPrevistas" class="form-label">Horas de mão de obra</label>
+                        <input type="number" step="0.01" min="0" class="form-control" th:field="*{horasPrevistas}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{horasPrevistas}">Erro das horas</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label for="percentualDesconto" class="form-label">Desconto (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control"
+                            th:field="*{percentualDesconto}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{percentualDesconto}">Erro do desconto</div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <button type="submit" class="btn btn-outline-primary w-100">Recalcular</button>
+                    </div>
+                    <div class="col-12 form-text">
+                        Mudar o desconto desfaz a aprovação da diretoria. Os preços dos itens continuam os da geração.
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <form th:if="${precisaDiretoria}" th:action="@{/comercial/propostas/{id}/pedir-aprovacao(id=${proposta.id})}"
+                method="post">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-user-tie me-2"></i>Pedir aprovação da diretoria
+                </button>
+            </form>
+            <form th:if="${podeEnviar}" th:action="@{/comercial/propostas/{id}/enviar(id=${proposta.id})}" method="post"
+                data-confirmar="Enviar a proposta ao cliente? A validade começa a contar hoje.">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar ao cliente
+                </button>
+            </form>
+            <a th:if="${versaoAtual}" th:href="@{/comercial/propostas/{id}/imprimir(id=${proposta.id})}" target="_blank"
+                class="btn btn-outline-secondary">
+                <i class="fas fa-print me-2"></i>Imprimir
+            </a>
+        </div>
+
+        <!-- Resposta do cliente (G3) -->
+        <div th:if="${proposta.situacao.name() == 'ENVIADA'}" class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h2 class="h5">Resposta do cliente</h2>
+                <div class="row g-3">
+                    <div class="col-12 col-md-5">
+                        <form th:action="@{/comercial/propostas/{id}/aprovacao-cliente(id=${proposta.id})}" method="post"
+                            data-confirmar="Registrar a aprovação do cliente? O projeto vai para Preparando material e o estoque disponível é reservado.">
+                            <button type="submit" class="btn btn-success w-100" th:disabled="${vencida}">
+                                <i class="fas fa-circle-check me-2"></i>Cliente aprovou
+                            </button>
+                        </form>
+                    </div>
+                    <div class="col-12 col-md-7">
+                        <form th:action="@{/comercial/propostas/{id}/recusa(id=${proposta.id})}" method="post"
+                            data-confirmar="Registrar a recusa? O projeto será cancelado.">
+                            <label for="motivo" class="form-label">Motivo da recusa</label>
+                            <textarea id="motivo" name="motivo" class="form-control mb-2" rows="2" maxlength="400" required></textarea>
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="fas fa-circle-xmark me-2"></i>Cliente recusou
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <a th:href="@{/comercial/propostas}" class="btn btn-outline-secondary">Voltar às propostas</a>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

@@ -118,6 +118,41 @@ main {
 .situacao-ENCERRADO { background-color: #343a40; }
 .situacao-CANCELADO { background-color: #6c757d; text-decoration: line-through; }
 
+/* Situação da proposta (fragments/situacao.html :: badgeProposta) */
+.proposta-EM_ELABORACAO { background-color: #4c3fa8; }
+.proposta-AGUARDANDO_DIRETORIA { background-color: #9a5b00; }
+.proposta-ENVIADA { background-color: #1f5fbf; }
+.proposta-VENCIDA { background-color: #6c757d; }
+.proposta-APROVADA { background-color: var(--app-primaria); }
+.proposta-RECUSADA { background-color: #b02a37; }
+
+/* Proposta impressa ou salva em PDF: só o conteúdo, sem menu, rodapé nem botões */
+@media print {
+    .app-navbar,
+    .app-footer,
+    .nao-imprimir,
+    .alert {
+        display: none !important;
+    }
+
+    body {
+        background-color: #fff;
+    }
+
+    .proposta-impressa {
+        max-width: none;
+        padding: 0 !important;
+    }
+
+    .tabela-orcamento {
+        font-size: 0.85rem;
+    }
+
+    .tabela-orcamento tr {
+        break-inside: avoid;
+    }
+}
+
 /* Página do projeto e resumo do material: rótulos dos dados */
 .saldos-material dt,
 .dados-projeto dt {

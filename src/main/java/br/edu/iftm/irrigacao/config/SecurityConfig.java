@@ -34,6 +34,8 @@ import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
  * <pre>
  * /projetos/**    qualquer usuário logado
  * /comercial/**   VENDEDOR, DIRETORIA
+ *                 (GET /comercial/projetos/{id}/faltantes também para COMPRADOR, e o POST das
+ *                 cotações só para COMPRADOR)
  * /engenharia/**  PROJETISTA
  * /estoque/**     ALMOXARIFE, COMPRADOR
  *                 (GET /estoque/materiais/busca também para PROJETISTA, que monta a lista técnica)
@@ -65,6 +67,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/css/**", "/js/**", "/login").permitAll()
 
+                // Faltantes e cotações (RF08): o comercial vê, e quem registra a cotação é o comprador
+                .requestMatchers(HttpMethod.GET, "/comercial/projetos/*/faltantes")
+                    .hasAnyAuthority(comAdministrador(VENDEDOR, DIRETORIA, COMPRADOR))
+                .requestMatchers(HttpMethod.POST, "/comercial/projetos/*/faltantes/cotacoes")
+                    .hasAnyAuthority(comAdministrador(COMPRADOR))
                 .requestMatchers("/comercial/**").hasAnyAuthority(comAdministrador(VENDEDOR, DIRETORIA))
                 .requestMatchers("/engenharia/**").hasAnyAuthority(comAdministrador(PROJETISTA))
                 // A busca de materiais em JSON serve a lista técnica, que é do projetista (RF05)

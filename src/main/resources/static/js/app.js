@@ -7,7 +7,17 @@ document.addEventListener('DOMContentLoaded', function () {
     usarLocalizacaoDoAparelho();
     conferirFotosEscolhidas();
     buscarMaterial();
+    imprimirPagina();
 });
+
+// Botão data-imprimir: abre a janela de impressão do navegador, que também salva em PDF.
+function imprimirPagina() {
+    document.querySelectorAll('[data-imprimir]').forEach(function (botao) {
+        botao.addEventListener('click', function () {
+            window.print();
+        });
+    });
+}
 
 // Destaca no menu o item que corresponde à página aberta. Quando mais de um item casa com o
 // caminho (como /projetos e /projetos/agenda), fica o mais específico.

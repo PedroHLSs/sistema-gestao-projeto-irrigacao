@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!-- Faltantes da lista técnica e cotações com fornecedores (RF08) -->
+<head th:replace="~{fragments/head :: head('Faltantes e cotações')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title mb-2">Faltantes e cotações</h1>
+        <p class="mb-3">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </p>
+
+        <div th:unless="${podeCotar}" class="alert alert-info">
+            As cotações são registradas com o projeto em "Orçando".
+        </div>
+
+        <p th:if="${#lists.isEmpty(faltantes)}" class="alert alert-success">
+            Nenhum faltante: o estoque disponível cobre a lista técnica.
+        </p>
+
+        <!-- Registro da cotação, pelo comprador -->
+        <div class="card shadow-sm mb-4" th:if="${podeCotar and !#lists.isEmpty(faltantes)}"
+            sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')">
+            <div class="card-body p-4">
+                <h2 class="h5">Registrar cotação</h2>
+                <form th:action="@{/comercial/projetos/{id}/faltantes/cotacoes(id=${projeto.id})}" th:object="${cotacao}"
+                    method="post" novalidate class="row g-3 align-items-start">
+                    <div class="col-12 col-lg-4">
+                        <label for="materialId" class="form-label">Material faltante</label>
+                        <select class="form-select" th:field="*{materialId}" th:errorclass="is-invalid">
+                            <option value="">Selecione</option>
+                            <option th:each="f : ${faltantes}" th:value="${f.material.id}"
+                                th:text="|${f.material.codigo} · ${f.material.descricao} (faltam ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(f.faltante)} ${f.material.unidade})|">
+                                Material</option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{materialId}">Erro do material</div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label for="fornecedor" class="form-label">Fornecedor</label>
+                        <input type="text" class="form-control" th:field="*{fornecedor}" th:errorclass="is-invalid" maxlength="120">
+                        <div class="invalid-feedback" th:errors="*{fornecedor}">Erro do fornecedor</div>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label for="precoUnitario" class="form-label">Preço unitário (R$)</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control" th:field="*{precoUnitario}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{precoUnitario}">Erro do preço</div>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-1">
+                        <label for="prazoDias" class="form-label">Prazo (dias)</label>
+                        <input type="number" step="1" min="0" class="form-control" th:field="*{prazoDias}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{prazoDias}">Erro do prazo</div>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label for="quantidade" class="form-label">Quantidade</label>
+                        <input type="number" step="0.001" min="0.001" class="form-control" th:field="*{quantidade}"
+                            th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{quantidade}">Erro da quantidade</div>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Registrar cotação</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Um cartão por faltante, com as cotações e a mais barata em destaque -->
+        <section th:each="f : ${faltantes}" class="card shadow-sm mb-3"
+            th:with="lista=${cotacoes[f.material.id]}, maisBarata=${maisBaratas[f.material.id]}">
+            <div class="card-header">
+                <h2 class="h6 mb-1">
+                    <span th:text="${f.material.codigo}">GT-AUT-2L</span> ·
+                    <span th:text="${f.material.descricao}">Gotejador</span>
+                </h2>
+                <div class="small text-muted"
+                    th:text="|Faltam ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(f.faltante)} ${f.material.unidade}: prevista ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(f.prevista)}, disponível ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(f.disponivel)}, já reservada ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(f.reservadaParaProjeto)}.|">
+                    Faltam 300 un</div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fornecedor</th>
+                            <th scope="col" class="text-end">Preço unitário</th>
+                            <th scope="col" class="text-end">Prazo</th>
+                            <th scope="col" class="text-end">Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="c : ${lista}" th:classappend="${maisBarata != null and maisBarata.id == c.id} ? 'table-success'">
+                            <td>
+                                <span th:text="${c.fornecedor}">Fornecedor</span>
+                                <span th:if="${maisBarata != null and maisBarata.id == c.id}" class="badge text-bg-success ms-1">mais barata</span>
+                            </td>
+                            <td class="text-end text-nowrap"
+                                th:text="|R$ ${#numbers.formatDecimal(c.precoUnitario, 1, 'POINT', 2, 'COMMA')}|">R$ 0,45</td>
+                            <td class="text-end text-nowrap" th:text="${c.prazoDias != null} ? |${c.prazoDias} dias| : '—'">7 dias</td>
+                            <td class="text-end text-nowrap"
+                                th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(c.quantidade)}">300</td>
+                        </tr>
+                        <tr th:if="${lista == null}">
+                            <td colspan="4" class="text-muted">Nenhuma cotação ainda.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="btn btn-outline-secondary">Voltar ao projeto</a>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>
