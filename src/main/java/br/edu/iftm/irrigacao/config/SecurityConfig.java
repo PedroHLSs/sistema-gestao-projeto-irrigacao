@@ -38,7 +38,8 @@ import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
  *                 cotações só para COMPRADOR)
  * /engenharia/**  PROJETISTA
  * /estoque/**     ALMOXARIFE, COMPRADOR
- *                 (GET /estoque/materiais/busca também para PROJETISTA, que monta a lista técnica)
+ *                 (GET /estoque/materiais/busca também para PROJETISTA, que monta a lista técnica;
+ *                 POST da requisição de compra só para COMPRADOR e da separação só para ALMOXARIFE)
  * /campo/**       TECNICO_CAMPO, PROJETISTA
  * /financeiro/**  FINANCEIRO, DIRETORIA
  * /diretoria/**   DIRETORIA
@@ -77,6 +78,11 @@ public class SecurityConfig {
                 // A busca de materiais em JSON serve a lista técnica, que é do projetista (RF05)
                 .requestMatchers(HttpMethod.GET, "/estoque/materiais/busca")
                     .hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR, PROJETISTA))
+                // Material do projeto aprovado (RF13, RF14): o comprador requisita, o almoxarife separa e confere
+                .requestMatchers(HttpMethod.POST, "/estoque/projetos/*/requisicoes")
+                    .hasAnyAuthority(comAdministrador(COMPRADOR))
+                .requestMatchers(HttpMethod.POST, "/estoque/projetos/*/separacao", "/estoque/projetos/*/separacao/**")
+                    .hasAnyAuthority(comAdministrador(ALMOXARIFE))
                 .requestMatchers("/estoque/**").hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR))
                 .requestMatchers("/campo/**").hasAnyAuthority(comAdministrador(TECNICO_CAMPO, PROJETISTA))
                 .requestMatchers("/financeiro/**").hasAnyAuthority(comAdministrador(FINANCEIRO, DIRETORIA))

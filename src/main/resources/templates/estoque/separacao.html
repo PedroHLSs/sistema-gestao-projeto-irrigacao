@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!-- Material do projeto aprovado (RF13, RF14, G4, G5): requisição dos faltantes, separação e conferência -->
+<head th:replace="~{fragments/head :: head('Separação do material')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title mb-2">Separação do material</h1>
+        <p class="mb-3">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </p>
+
+        <div th:if="${divergencias != null}" class="alert alert-warning">
+            <div class="fw-semibold mb-1">Itens que não batem com a lista técnica:</div>
+            <ul class="mb-0 ps-3">
+                <li th:each="d : ${divergencias}" th:text="${d}">TB-PVC-050: prevista 20 barra, separada 18 barra (-2)</li>
+            </ul>
+        </div>
+        <div th:unless="${emPreparacao}" class="alert alert-info"
+            th:text="${projeto.separacaoConferida} ? 'A separação deste projeto já foi conferida.' : 'A separação é feita com o projeto em &quot;Preparando material&quot;.'">
+            A separação deste projeto já foi conferida.
+        </div>
+
+        <!-- G4: itens ainda não reservados por inteiro e a requisição de compra (RF13) -->
+        <th:block th:each="d : ${itens}" th:unless="${separaveis.contains(d.item.id)}">
+            <section class="card shadow-sm mb-3"
+                th:with="lista=${cotacoes[d.material.id]},
+                         requisitado=${lista != null and lista.?[situacao.name() == 'REQUISITADA' or situacao.name() == 'RECEBIDA'].size() > 0}">
+                <div class="card-header">
+                    <h2 class="h6 mb-1" th:text="|${d.material.codigo} · ${d.material.descricao}|">GT-AUT-2L · Gotejador</h2>
+                    <div class="small text-muted"
+                        th:text="|Reservado para o projeto: ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.reservadaParaProjeto)} de ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.prevista)} ${d.material.unidade}. Faltam ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.faltante)} no estoque.|">
+                        Reservado 100 de 400 un</div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Fornecedor</th>
+                                <th scope="col" class="text-end">Preço unitário</th>
+                                <th scope="col" class="text-end">Quantidade</th>
+                                <th scope="col">Situação</th>
+                                <th scope="col" class="text-end"><span class="visually-hidden">Ação</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="c : ${lista}">
+                                <td th:text="${c.fornecedor}">AgroGotas</td>
+                                <td class="text-end text-nowrap"
+                                    th:text="|R$ ${#numbers.formatDecimal(c.precoUnitario, 1, 'POINT', 2, 'COMMA')}|">R$ 0,45</td>
+                                <td class="text-end text-nowrap"
+                                    th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(c.quantidade)}">300</td>
+                                <td th:text="${c.situacao.rotulo}">Cotada</td>
+                                <td class="text-end">
+                                    <form th:if="${emPreparacao and !requisitado and c.situacao.name() == 'COTADA'}"
+                                        sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')"
+                                        th:action="@{/estoque/projetos/{id}/requisicoes(id=${projeto.id})}" method="post"
+                                        th:attr="data-confirmar=|Requisitar a compra a ${c.fornecedor}? As outras cotações deste item serão descartadas.|">
+                                        <input type="hidden" name="cotacaoId" th:value="${c.id}">
+                                        <button type="submit" class="btn btn-sm btn-primary">Requisitar</button>
+                                    </form>
+                                    <a th:if="${c.situacao.name() == 'REQUISITADA'}" th:href="@{/estoque/requisicoes}"
+                                        class="small">aguardando recebimento</a>
+                                </td>
+                            </tr>
+                            <tr th:if="${lista == null}">
+                                <td colspan="5" class="text-muted">Nenhuma cotação registrada para este item.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </th:block>
+
+        <!-- RF14: separação, item a item, liberada só para o item reservado por inteiro -->
+        <form th:action="@{/estoque/projetos/{id}/separacao(id=${projeto.id})}" method="post" class="mb-3">
+            <div class="table-responsive bg-white border rounded shadow-sm mb-3">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Material</th>
+                            <th scope="col" class="text-end">Prevista</th>
+                            <th scope="col" class="text-end">Reservada</th>
+                            <th scope="col" class="text-end">Separada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="d : ${itens}" th:with="separavel=${separaveis.contains(d.item.id)}">
+                            <td>
+                                <span class="fw-semibold" th:text="${d.material.codigo}">TB-PVC-050</span>
+                                <span class="small text-muted" th:text="${d.material.descricao}">Tubo</span>
+                            </td>
+                            <td class="text-end text-nowrap"
+                                th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.prevista)} ${d.material.unidade}|">20 barra</td>
+                            <td class="text-end text-nowrap"
+                                th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.reservadaParaProjeto)}">20</td>
+                            <td class="text-end">
+                                <input th:if="${emPreparacao}" type="number" step="0.001" min="0"
+                                    class="form-control form-control-sm campo-quantidade ms-auto"
+                                    th:name="|quantidades[${d.item.id}]|"
+                                    th:value="${d.item.quantidadeSeparada.stripTrailingZeros().toPlainString()}"
+                                    th:disabled="${!separavel}"
+                                    th:attr="aria-label=|Quantidade separada de ${d.material.codigo}|">
+                                <div th:if="${emPreparacao and !separavel}" class="small text-muted">aguardando reserva</div>
+                                <span th:unless="${emPreparacao}"
+                                    th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.item.quantidadeSeparada)}">20</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <button th:if="${emPreparacao}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
+                type="submit" class="btn btn-primary">
+                <i class="fas fa-floppy-disk me-2"></i>Salvar separação
+            </button>
+        </form>
+
+        <form th:if="${emPreparacao}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
+            th:action="@{/estoque/projetos/{id}/separacao/conferencia(id=${projeto.id})}" method="post"
+            data-confirmar="Conferir a separação? Se tudo bater, o material sai do estoque para o projeto.">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-clipboard-check me-2"></i>Conferir separação
+            </button>
+            <span class="form-text ms-2">Compara a separada com a prevista. Salve a separação antes.</span>
+        </form>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

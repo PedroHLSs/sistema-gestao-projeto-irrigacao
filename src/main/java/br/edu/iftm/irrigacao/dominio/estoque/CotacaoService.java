@@ -28,4 +28,23 @@ public interface CotacaoService {
      */
     Cotacao registrar(Long projetoId, Long materialId, String fornecedor, BigDecimal precoUnitario, Integer prazoDias,
             BigDecimal quantidade);
+
+    /**
+     * Requisição de compra (RF13, G4): a cotação escolhida vai para REQUISITADA e as outras cotações
+     * do mesmo material no projeto, para DESCARTADA. Só com o projeto em PREPARANDO_MATERIAL, para
+     * cotação COTADA de material que ainda não tem requisição.
+     */
+    Cotacao requisitar(Long projetoId, Long cotacaoId);
+
+    /** Requisições abertas: cotações em REQUISITADA, com projeto e material carregados (RF13). */
+    List<Cotacao> requisicoesAbertas();
+
+    /**
+     * Recebimento da requisição, numa transação só: a cotação vai para RECEBIDA, a quantidade entra
+     * no estoque ({@code entradaCompra}) e é reservada para o projeto até o que o item ainda precisa.
+     * O que chegar a mais fica disponível.
+     *
+     * @return a cotação recebida
+     */
+    Cotacao receber(Long cotacaoId);
 }

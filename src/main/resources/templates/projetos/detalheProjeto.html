@@ -179,7 +179,9 @@
                                 <thead>
                                     <tr>
                                         <th scope="col">Material</th>
-                                        <th scope="col" class="text-end">Quantidade</th>
+                                        <th scope="col" class="text-end">Prevista</th>
+                                        <th scope="col" class="text-end">Reservada</th>
+                                        <th scope="col" class="text-end">Separada</th>
                                         <th scope="col" class="text-end">Subtotal</th>
                                     </tr>
                                 </thead>
@@ -192,12 +194,16 @@
                                         <td class="text-end text-nowrap"
                                             th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadePrevista)} ${i.material.unidade}|">10 barra</td>
                                         <td class="text-end text-nowrap"
+                                            th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(reservadas[i.id])}">10</td>
+                                        <td class="text-end text-nowrap"
+                                            th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadeSeparada)}">0</td>
+                                        <td class="text-end text-nowrap"
                                             th:text="${i.material.precoVenda != null} ? |R$ ${#numbers.formatDecimal(i.quantidadePrevista.multiply(i.material.precoVenda), 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 629,00</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <th scope="row" colspan="2" class="text-end">Total estimado (preço de venda atual)</th>
+                                        <th scope="row" colspan="4" class="text-end">Total estimado (preço de venda atual)</th>
                                         <td class="text-end text-nowrap fw-bold"
                                             th:text="|R$ ${#numbers.formatDecimal(total, 1, 'POINT', 2, 'COMMA')}|">R$ 629,00</td>
                                     </tr>
@@ -211,6 +217,10 @@
                         <a th:if="${podeDimensionar}" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')"
                             th:href="@{/engenharia/projetos/{id}/dimensionamento(id=${projeto.id})}" class="btn btn-primary">
                             <i class="fas fa-compass-drafting me-2"></i>Dimensionar e montar a lista
+                        </a>
+                        <a th:if="${preparandoMaterial}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')"
+                            th:href="@{/estoque/projetos/{id}/separacao(id=${projeto.id})}" class="btn btn-primary">
+                            <i class="fas fa-dolly me-2"></i>Requisição e separação
                         </a>
                     </div>
                     <div class="tab-pane fade" id="aba-proposta" role="tabpanel" aria-labelledby="aba-proposta-tab">

@@ -3,6 +3,7 @@ package br.edu.iftm.irrigacao.apresentacao.web;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import br.edu.iftm.irrigacao.dominio.comercial.PropostaService;
+import br.edu.iftm.irrigacao.dominio.estoque.DisponibilidadeItem;
+import br.edu.iftm.irrigacao.dominio.estoque.EstoqueService;
 import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
 import br.edu.iftm.irrigacao.dominio.estoque.ListaTecnicaService;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoArmazenada;
@@ -44,13 +47,15 @@ public class ProjetoController {
     private final LevantamentoService levantamentoService;
     private final ListaTecnicaService listaTecnicaService;
     private final PropostaService propostaService;
+    private final EstoqueService estoqueService;
 
     public ProjetoController(ProjetoService projetoService, LevantamentoService levantamentoService,
-            ListaTecnicaService listaTecnicaService, PropostaService propostaService) {
+            ListaTecnicaService listaTecnicaService, PropostaService propostaService, EstoqueService estoqueService) {
         this.projetoService = projetoService;
         this.levantamentoService = levantamentoService;
         this.listaTecnicaService = listaTecnicaService;
         this.propostaService = propostaService;
+        this.estoqueService = estoqueService;
     }
 
     /**
@@ -80,6 +85,10 @@ public class ProjetoController {
         model.addAttribute("faltantes", faltantes);
         model.addAttribute("itens", itens);
         model.addAttribute("total", listaTecnicaService.totalEstimado(itens));
+        // Aba Lista técnica: quanto de cada item já foi reservado para o projeto (RF07, RF14)
+        model.addAttribute("reservadas", estoqueService.disponibilidade(id).stream()
+                .collect(Collectors.toMap(item -> item.getItem().getId(), DisponibilidadeItem::getReservadaParaProjeto)));
+        model.addAttribute("preparandoMaterial", projeto.getSituacao() == SituacaoProjeto.PREPARANDO_MATERIAL);
         model.addAttribute("podeAgendarVisita", levantamentoService.podeAgendarVisita(projeto, levantamento));
         model.addAttribute("podePreencherLevantamento", podePreencher);
         model.addAttribute("podeDimensionar", podePreencher && faltantes.isEmpty());

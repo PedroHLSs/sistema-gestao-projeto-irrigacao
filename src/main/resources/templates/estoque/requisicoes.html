@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Requisições de compra abertas (RF13): cotações em REQUISITADA esperando o material chegar -->
+<head th:replace="~{fragments/head :: head('Requisições de compra')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h1 class="page-title mb-0 flex-grow-1">Requisições de compra</h1>
+            <a th:href="@{/estoque/materiais}" class="btn btn-outline-secondary">Materiais</a>
+        </div>
+
+        <div class="table-responsive bg-white border rounded shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Projeto</th>
+                        <th scope="col">Material</th>
+                        <th scope="col">Fornecedor</th>
+                        <th scope="col" class="text-end">Quantidade</th>
+                        <th scope="col" class="text-end">Valor</th>
+                        <th scope="col">Requisitada em</th>
+                        <th scope="col" class="text-end"><span class="visually-hidden">Ação</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${requisicoes}">
+                        <td class="text-nowrap">
+                            <a th:href="@{/estoque/projetos/{id}/separacao(id=${r.projeto.id})}" th:text="${r.projeto.codigo}">PRJ-2026-0001</a>
+                        </td>
+                        <td>
+                            <span class="fw-semibold" th:text="${r.material.codigo}">GT-AUT-2L</span>
+                            <span class="small text-muted" th:text="${r.material.descricao}">Gotejador</span>
+                        </td>
+                        <td>
+                            <span th:text="${r.fornecedor}">AgroGotas</span>
+                            <div class="small text-muted" th:if="${r.prazoDias != null}" th:text="|prazo de ${r.prazoDias} dias|">prazo de 15 dias</div>
+                        </td>
+                        <td class="text-end text-nowrap"
+                            th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(r.quantidade)} ${r.material.unidade}|">300 un</td>
+                        <td class="text-end text-nowrap"
+                            th:text="|R$ ${#numbers.formatDecimal(r.quantidade.multiply(r.precoUnitario), 1, 'POINT', 2, 'COMMA')}|">R$ 135,00</td>
+                        <td class="text-nowrap" th:text="${#temporals.format(r.alteradoEm, 'dd/MM/yyyy')}">16/11/2026</td>
+                        <td class="text-end">
+                            <form th:action="@{/estoque/requisicoes/{id}/recebimento(id=${r.id})}" method="post"
+                                th:attr="data-confirmar=|Registrar o recebimento de ${r.material.codigo}? O material entra no estoque e é reservado para ${r.projeto.codigo}.|">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="fas fa-truck-ramp-box me-1"></i>Registrar recebimento
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(requisicoes)}">
+                        <td colspan="7" class="text-center text-muted py-4">Nenhuma requisição aberta.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>
