@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Entrada de compra')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Entrada de compra</h1>
+
+        <div class="form-card">
+            <div th:replace="~{estoque/resumoMaterial :: resumo(${material})}"></div>
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form th:action="@{/estoque/materiais/{id}/entrada(id=${material.id})}" th:object="${entrada}"
+                        method="post" novalidate>
+                        <div class="mb-4">
+                            <label for="quantidade" class="form-label">
+                                Quantidade recebida (<span th:text="${material.unidade}">un</span>)
+                            </label>
+                            <input type="number" step="0.001" min="0.001" class="form-control form-control-lg"
+                                th:field="*{quantidade}" th:errorclass="is-invalid" autofocus>
+                            <div class="invalid-feedback" th:errors="*{quantidade}">Erro da quantidade</div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-truck-ramp-box me-2"></i>Registrar entrada
+                            </button>
+                            <a th:href="@{/estoque/materiais}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

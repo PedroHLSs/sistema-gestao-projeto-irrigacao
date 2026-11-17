@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Materiais')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container-xl py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h1 class="page-title mb-0 flex-grow-1">Materiais</h1>
+            <a th:href="@{/estoque/materiais/novo}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Novo material
+            </a>
+        </div>
+
+        <form th:action="@{/estoque/materiais}" method="get" class="row g-2 mb-3" role="search">
+            <div class="col-12 col-md-8 col-lg-6">
+                <label for="busca" class="visually-hidden">Buscar por código ou descrição</label>
+                <input type="search" id="busca" name="busca" class="form-control" th:value="${busca}"
+                    placeholder="Código ou descrição">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-magnifying-glass me-1"></i>Buscar
+                </button>
+                <a th:if="${busca != null and !#strings.isEmpty(busca)}" th:href="@{/estoque/materiais}"
+                    class="btn btn-link">Limpar</a>
+            </div>
+        </form>
+
+        <div class="table-responsive bg-white border rounded shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Código</th>
+                        <th scope="col">Descrição</th>
+                        <th scope="col">Unid.</th>
+                        <th scope="col" class="text-end">Preço de venda</th>
+                        <th scope="col" class="text-end">Custo</th>
+                        <th scope="col" class="text-end">Saldo</th>
+                        <th scope="col" class="text-end">Reservado</th>
+                        <th scope="col" class="text-end">Disponível</th>
+                        <th scope="col" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="m : ${materiais}" th:with="disponivel=${m.saldo.subtract(m.saldoReservado)}">
+                        <td class="text-nowrap fw-semibold" th:text="${m.codigo}">TB-PVC-050</td>
+                        <td th:text="${m.descricao}">Tubo PVC</td>
+                        <td th:text="${m.unidade}">barra</td>
+                        <td class="text-end text-nowrap"
+                            th:text="${m.precoVenda != null} ? |R$ ${#numbers.formatDecimal(m.precoVenda, 1, 'POINT', 2, 'COMMA')}| : '—'">
+                            R$ 62,90</td>
+                        <td class="text-end text-nowrap"
+                            th:text="${m.custoUnitario != null} ? |R$ ${#numbers.formatDecimal(m.custoUnitario, 1, 'POINT', 2, 'COMMA')}| : '—'">
+                            R$ 44,80</td>
+                        <td class="text-end" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(m.saldo)}">120</td>
+                        <td class="text-end" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(m.saldoReservado)}">20</td>
+                        <td class="text-end fw-semibold" th:classappend="${disponivel.signum() <= 0} ? 'text-danger'"
+                            th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(disponivel)}">100</td>
+                        <td class="text-end text-nowrap">
+                            <a th:href="@{/estoque/materiais/{id}/editar(id=${m.id})}" class="btn btn-sm btn-outline-primary"
+                                title="Editar cadastro"><i class="fas fa-pen"></i><span class="visually-hidden">Editar</span></a>
+                            <a th:href="@{/estoque/materiais/{id}/entrada(id=${m.id})}" class="btn btn-sm btn-outline-primary"
+                                title="Entrada de compra"><i class="fas fa-truck-ramp-box"></i><span class="visually-hidden">Entrada</span></a>
+                            <a th:href="@{/estoque/materiais/{id}/ajuste(id=${m.id})}" class="btn btn-sm btn-outline-primary"
+                                title="Ajuste de saldo"><i class="fas fa-scale-balanced"></i><span class="visually-hidden">Ajuste</span></a>
+                            <a th:href="@{/estoque/materiais/{id}/extrato(id=${m.id})}" class="btn btn-sm btn-outline-primary"
+                                title="Extrato"><i class="fas fa-list"></i><span class="visually-hidden">Extrato</span></a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(materiais)}">
+                        <td colspan="9" class="text-center text-muted py-4"
+                            th:text="${busca != null and !#strings.isEmpty(busca)} ? 'Nenhum material encontrado para essa busca.' : 'Nenhum material cadastrado.'">
+                            Nenhum material cadastrado.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

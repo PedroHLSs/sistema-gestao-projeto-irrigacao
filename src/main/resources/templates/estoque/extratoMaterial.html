@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head('Extrato do material')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Extrato do material</h1>
+
+        <div th:replace="~{estoque/resumoMaterial :: resumo(${material})}"></div>
+
+        <!-- Filtros: período (datas inclusive) e projeto -->
+        <form th:action="@{/estoque/materiais/{id}/extrato(id=${material.id})}" th:object="${filtro}" method="get"
+            class="row g-2 align-items-end mb-3" novalidate>
+            <div class="col-6 col-md-3">
+                <label for="de" class="form-label">De</label>
+                <input type="date" class="form-control" th:field="*{de}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{de}">Erro da data</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label for="ate" class="form-label">Até</label>
+                <input type="date" class="form-control" th:field="*{ate}"
+                    th:classappend="${#fields.hasErrors('ate') or #fields.hasErrors('periodoValido')} ? 'is-invalid'">
+                <div class="invalid-feedback" th:errors="*{ate}">Erro da data</div>
+                <div class="invalid-feedback" th:errors="*{periodoValido}">Período inválido</div>
+            </div>
+            <div class="col-12 col-md-3">
+                <label for="projetoId" class="form-label">Projeto</label>
+                <select class="form-select" th:field="*{projetoId}">
+                    <option value="">Todos</option>
+                    <option th:each="p : ${projetos}" th:value="${p.id}" th:text="${p.codigo}">PRJ-2026-0001</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-filter me-1"></i>Filtrar
+                </button>
+                <a th:href="@{/estoque/materiais/{id}/extrato(id=${material.id})}" class="btn btn-link">Limpar</a>
+            </div>
+        </form>
+
+        <div class="table-responsive bg-white border rounded shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Data e hora</th>
+                        <th scope="col">Movimentação</th>
+                        <th scope="col" class="text-end">Saldo</th>
+                        <th scope="col" class="text-end">Reservado</th>
+                        <th scope="col">Projeto</th>
+                        <th scope="col">Usuário</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="mov : ${movimentacoes.content}">
+                        <td class="text-nowrap" th:text="${#temporals.format(mov.dataHora, 'dd/MM/yyyy HH:mm')}">16/11/2026 09:00</td>
+                        <td th:text="${mov.tipo.rotulo}">Entrada de compra</td>
+                        <td class="text-end text-nowrap" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).comSinal(mov.tipo.efeitoNoSaldo(mov.quantidade))}">+10</td>
+                        <td class="text-end text-nowrap" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).comSinal(mov.tipo.efeitoNoReservado(mov.quantidade))}"></td>
+                        <td>
+                            <a th:if="${mov.projeto != null}" th:href="@{/projetos/{id}(id=${mov.projeto.id})}"
+                                th:text="${mov.projeto.codigo}">PRJ-2026-0001</a>
+                        </td>
+                        <td th:text="${mov.usuario != null} ? ${mov.usuario.nome} : ''">Usuário</td>
+                    </tr>
+                    <tr th:if="${movimentacoes.empty}">
+                        <td colspan="6" class="text-center text-muted py-4">Nenhuma movimentação no período.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação, mantendo os filtros -->
+        <nav th:if="${movimentacoes.totalPages > 1}" class="d-flex flex-wrap align-items-center gap-2 mt-3"
+            aria-label="Páginas do extrato">
+            <a th:if="${movimentacoes.hasPrevious()}" class="btn btn-outline-primary"
+                th:href="@{/estoque/materiais/{id}/extrato(id=${material.id},de=${filtro.de},ate=${filtro.ate},projetoId=${filtro.projetoId},pagina=${movimentacoes.number - 1})}">
+                <i class="fas fa-chevron-left me-1"></i>Anterior
+            </a>
+            <span class="text-muted"
+                th:text="|Página ${movimentacoes.number + 1} de ${movimentacoes.totalPages} · ${movimentacoes.totalElements} movimentações|">
+                Página 1 de 2 · 25 movimentações</span>
+            <a th:if="${movimentacoes.hasNext()}" class="btn btn-outline-primary"
+                th:href="@{/estoque/materiais/{id}/extrato(id=${material.id},de=${filtro.de},ate=${filtro.ate},projetoId=${filtro.projetoId},pagina=${movimentacoes.number + 1})}">
+                Próxima<i class="fas fa-chevron-right ms-1"></i>
+            </a>
+        </nav>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

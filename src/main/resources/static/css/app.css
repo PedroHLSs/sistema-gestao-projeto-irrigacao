@@ -118,7 +118,8 @@ main {
 .situacao-ENCERRADO { background-color: #343a40; }
 .situacao-CANCELADO { background-color: #6c757d; text-decoration: line-through; }
 
-/* Página do projeto: rótulos dos dados do cabeçalho */
+/* Página do projeto e resumo do material: rótulos dos dados */
+.saldos-material dt,
 .dados-projeto dt {
     font-size: 0.8rem;
     font-weight: 600;
@@ -128,6 +129,12 @@ main {
 
 .dados-projeto dd {
     margin-bottom: 0.75rem;
+}
+
+.saldos-material dd {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0;
 }
 
 /* Abas do projeto: no celular rolam de lado em vez de quebrar em duas linhas */

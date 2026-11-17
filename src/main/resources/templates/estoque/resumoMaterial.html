@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!-- Cartão com o material e o saldo atual, usado na entrada, no ajuste e no extrato -->
+    <div th:fragment="resumo(material)" class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+                <div>
+                    <div class="fw-semibold" th:text="${material.codigo}">TB-PVC-050</div>
+                    <div class="text-muted" th:text="${material.descricao}">Tubo PVC</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-start">
+                    <a th:href="@{/estoque/materiais/{id}/entrada(id=${material.id})}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-truck-ramp-box me-1"></i>Entrada
+                    </a>
+                    <a th:href="@{/estoque/materiais/{id}/ajuste(id=${material.id})}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-scale-balanced me-1"></i>Ajuste
+                    </a>
+                    <a th:href="@{/estoque/materiais/{id}/extrato(id=${material.id})}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-list me-1"></i>Extrato
+                    </a>
+                </div>
+            </div>
+            <dl class="row mb-0 mt-3 saldos-material">
+                <div class="col-4">
+                    <dt>Saldo</dt>
+                    <dd><span th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(material.saldo)}">120</span> <span class="text-muted" th:text="${material.unidade}">un</span></dd>
+                </div>
+                <div class="col-4">
+                    <dt>Reservado</dt>
+                    <dd><span th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(material.saldoReservado)}">20</span> <span class="text-muted" th:text="${material.unidade}">un</span></dd>
+                </div>
+                <div class="col-4">
+                    <dt>Disponível</dt>
+                    <dd><span th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(material.saldo.subtract(material.saldoReservado))}">100</span> <span class="text-muted" th:text="${material.unidade}">un</span></dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</body>
+
+</html>

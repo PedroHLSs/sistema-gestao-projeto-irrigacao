@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -35,6 +36,7 @@ import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
  * /comercial/**   VENDEDOR, DIRETORIA
  * /engenharia/**  PROJETISTA
  * /estoque/**     ALMOXARIFE, COMPRADOR
+ *                 (GET /estoque/materiais/busca também para PROJETISTA, que monta a lista técnica)
  * /campo/**       TECNICO_CAMPO, PROJETISTA
  * /financeiro/**  FINANCEIRO, DIRETORIA
  * /diretoria/**   DIRETORIA
@@ -65,6 +67,9 @@ public class SecurityConfig {
 
                 .requestMatchers("/comercial/**").hasAnyAuthority(comAdministrador(VENDEDOR, DIRETORIA))
                 .requestMatchers("/engenharia/**").hasAnyAuthority(comAdministrador(PROJETISTA))
+                // A busca de materiais em JSON serve a lista técnica, que é do projetista (RF05)
+                .requestMatchers(HttpMethod.GET, "/estoque/materiais/busca")
+                    .hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR, PROJETISTA))
                 .requestMatchers("/estoque/**").hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR))
                 .requestMatchers("/campo/**").hasAnyAuthority(comAdministrador(TECNICO_CAMPO, PROJETISTA))
                 .requestMatchers("/financeiro/**").hasAnyAuthority(comAdministrador(FINANCEIRO, DIRETORIA))

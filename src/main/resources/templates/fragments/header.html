@@ -39,7 +39,7 @@
                             <a class="nav-link" href="#"><i class="fas fa-compass-drafting me-2"></i>Engenharia</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')">
-                            <a class="nav-link" href="#"><i class="fas fa-boxes-stacked me-2"></i>Estoque</a>
+                            <a class="nav-link" th:href="@{/estoque/materiais}"><i class="fas fa-boxes-stacked me-2"></i>Estoque</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')">
                             <a class="nav-link" href="#"><i class="fas fa-clipboard-list me-2"></i>Campo</a>
