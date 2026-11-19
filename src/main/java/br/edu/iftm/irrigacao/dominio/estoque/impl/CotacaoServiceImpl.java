@@ -61,11 +61,21 @@ public class CotacaoServiceImpl implements CotacaoService {
     }
 
     @Override
+    public boolean podeCotar(Projeto projeto) {
+        return projeto.getSituacao() == SituacaoProjeto.ORCANDO
+                || projeto.getSituacao() == SituacaoProjeto.PREPARANDO_MATERIAL;
+    }
+
+    @Override
     @Transactional
     public Cotacao registrar(Long projetoId, Long materialId, String fornecedor, BigDecimal precoUnitario,
             Integer prazoDias, BigDecimal quantidade) {
         Projeto projeto = buscarProjeto(projetoId);
-        exigirSituacao(projeto, SituacaoProjeto.ORCANDO, "As cotações são registradas");
+        if (!podeCotar(projeto)) {
+            throw new RegraNegocioException("As cotações são registradas com o projeto em \""
+                    + SituacaoProjeto.ORCANDO.getRotulo() + "\" ou \"" + SituacaoProjeto.PREPARANDO_MATERIAL.getRotulo()
+                    + "\". O projeto " + projeto.getCodigo() + " está em \"" + projeto.getSituacao().getRotulo() + "\".");
+        }
         ItemProjeto item = itemProjetoRepository.findByProjetoIdAndMaterialId(projetoId, materialId)
                 .orElseThrow(() -> new RegraNegocioException("O material não está na lista técnica do projeto "
                         + projeto.getCodigo() + "."));

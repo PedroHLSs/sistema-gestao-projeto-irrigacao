@@ -20,13 +20,13 @@ import br.edu.iftm.irrigacao.dominio.estoque.DisponibilidadeItem;
 import br.edu.iftm.irrigacao.dominio.estoque.EstoqueService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.ProjetoService;
-import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 import jakarta.validation.Valid;
 
 /**
  * Faltantes da lista técnica e cotações com fornecedores (RF08, atividades 6 e 7). A tela é vista
  * pelo comercial e pelo comprador; quem registra a cotação é o COMPRADOR ({@code SecurityConfig}),
- * com o projeto em ORCANDO. A cotação mais barata de cada item fica em destaque.
+ * com o projeto em ORCANDO ou, para o que passou a faltar depois do orçamento (G4), em
+ * PREPARANDO_MATERIAL. A cotação mais barata de cada item fica em destaque.
  */
 @Controller
 @RequestMapping("/comercial/projetos/{id:\\d+}/faltantes")
@@ -75,7 +75,7 @@ public class FaltantesController {
         model.addAttribute("faltantes", faltantes);
         model.addAttribute("cotacoes", cotacoesPorMaterial);
         model.addAttribute("maisBaratas", cotacaoService.maisBaratas(id));
-        model.addAttribute("podeCotar", projeto.getSituacao() == SituacaoProjeto.ORCANDO);
+        model.addAttribute("podeCotar", cotacaoService.podeCotar(projeto));
         return TELA;
     }
 }

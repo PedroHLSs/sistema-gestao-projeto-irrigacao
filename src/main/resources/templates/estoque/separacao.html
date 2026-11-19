@@ -43,6 +43,9 @@
                         th:text="${podeRequisitar}
                             ? |A comprar: ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(falta)} ${d.material.unidade}|
                             : 'Compra coberta pelas requisições.'">A comprar: 300 un</div>
+                    <!-- G4: o que passou a faltar depois do orçamento ainda não tem cotação -->
+                    <a th:if="${emPreparacao and podeRequisitar}" sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')"
+                        th:href="@{/comercial/projetos/{id}/faltantes(id=${projeto.id})}" class="small">Registrar cotação</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">

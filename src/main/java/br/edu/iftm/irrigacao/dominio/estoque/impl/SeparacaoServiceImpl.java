@@ -1,6 +1,7 @@
 package br.edu.iftm.irrigacao.dominio.estoque.impl;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -45,7 +46,7 @@ public class SeparacaoServiceImpl implements SeparacaoService {
 
     @Override
     public boolean podeSeparar(DisponibilidadeItem item) {
-        return item.getReservadaParaProjeto().compareTo(item.getPrevista()) >= 0;
+        return item.getFaltante().signum() == 0;
     }
 
     @Override
@@ -54,6 +55,7 @@ public class SeparacaoServiceImpl implements SeparacaoService {
         exigirSeparacaoAberta(buscarProjeto(projetoId));
         Map<Long, DisponibilidadeItem> porItem = estoqueService.disponibilidade(projetoId).stream()
                 .collect(Collectors.toMap(item -> item.getItem().getId(), Function.identity()));
+        Map<Long, BigDecimal> separadas = new HashMap<>();
         for (Map.Entry<Long, BigDecimal> informado : quantidadesPorItem.entrySet()) {
             BigDecimal quantidade = informado.getValue();
             if (quantidade == null) {
@@ -74,7 +76,18 @@ public class SeparacaoServiceImpl implements SeparacaoService {
                 throw new RegraNegocioException("A quantidade separada de " + codigo
                         + " deve ser zero ou mais, com até 3 casas decimais.");
             }
-            item.getItem().setQuantidadeSeparada(quantidade);
+            separadas.put(informado.getKey(), quantidade);
+            // G4: o que entrou no estoque depois da aprovação ainda não está reservado para o projeto
+            BigDecimal aReservar = item.getPrevista().subtract(item.getReservadaParaProjeto());
+            if (aReservar.signum() > 0) {
+                estoqueService.reservar(item.getMaterial().getId(), projetoId, aReservar);
+            }
+        }
+        // A reserva limpa o contexto de persistência: os itens são lidos de novo antes de gravar
+        for (ItemProjeto item : itemProjetoRepository.listarPorProjetoComMaterial(projetoId)) {
+            if (separadas.containsKey(item.getId())) {
+                item.setQuantidadeSeparada(separadas.get(item.getId()));
+            }
         }
     }
 

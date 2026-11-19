@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
+
 /**
  * Cotação dos materiais faltantes com fornecedores (RF08, atividade 7). Cada cotação nasce em
  * COTADA. A mais barata de cada material entra no custo orçado do projeto (RF09).
@@ -22,7 +24,14 @@ public interface CotacaoService {
     Map<Long, Cotacao> maisBaratas(Long projetoId);
 
     /**
-     * Registra a cotação em COTADA. Só com o projeto em ORCANDO e para material da lista técnica.
+     * A cotação é registrada no orçamento (ORCANDO) e também em PREPARANDO_MATERIAL, para o que passou
+     * a faltar depois do orçamento e precisa de requisição de compra (G4, RF13).
+     */
+    boolean podeCotar(Projeto projeto);
+
+    /**
+     * Registra a cotação em COTADA, com o projeto numa situação de {@link #podeCotar(Projeto)} e para
+     * material da lista técnica.
      *
      * @param prazoDias prazo de entrega em dias, opcional
      */
