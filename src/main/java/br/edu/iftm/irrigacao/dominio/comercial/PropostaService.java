@@ -100,4 +100,7 @@ public interface PropostaService {
      * em até {@code irrigacao.proposta.dias-alerta} dias, contando hoje.
      */
     List<Proposta> alertarVencimento(Long usuarioId);
+
+    /** Quantas propostas {@link #alertarVencimento} traria, contadas no banco. */
+    long contarAlertasDeVencimento(Long usuarioId);
 }

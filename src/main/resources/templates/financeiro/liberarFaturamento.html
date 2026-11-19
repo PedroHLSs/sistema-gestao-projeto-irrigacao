@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Liberação do faturamento e registro da garantia de um projeto (RF20, RF21) -->
+<head th:replace="~{fragments/head :: head('Liberar faturamento')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1 page-title">
+            <h1 class="h2 mb-0 me-2">Liberar faturamento</h1>
+            <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
+        </div>
+        <p class="mb-4">
+            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
+            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+        </p>
+
+        <div th:if="${motivoBloqueio != null}" class="alert alert-warning">
+            <i class="fas fa-lock me-2"></i><span th:text="${motivoBloqueio}">Motivo do bloqueio</span>
+        </div>
+
+        <section th:if="${motivoBloqueio == null}" class="card shadow-sm form-card">
+            <div class="card-body">
+                <h2 class="h5">Garantia</h2>
+                <form th:action="@{/financeiro/liberacoes/{id}(id=${projeto.id})}" th:object="${liberacao}" method="post" novalidate>
+                    <div class="mb-3">
+                        <label for="dataInicioGarantia" class="form-label">Início da garantia</label>
+                        <input type="date" class="form-control" th:field="*{dataInicioGarantia}"
+                            th:max="${#temporals.format(hoje, 'yyyy-MM-dd')}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{dataInicioGarantia}">Erro da data</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prazoGarantiaMeses" class="form-label">Prazo da garantia, em meses</label>
+                        <input type="number" class="form-control" th:field="*{prazoGarantiaMeses}" min="1" step="1"
+                            th:max="${T(br.edu.iftm.irrigacao.dominio.projeto.LiberacaoFaturamentoService).PRAZO_MAXIMO_MESES}"
+                            inputmode="numeric" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{prazoGarantiaMeses}">Erro do prazo</div>
+                    </div>
+                    <p class="small text-muted">Ao confirmar, o faturamento é liberado com a data de hoje e o projeto é encerrado.</p>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Liberar e encerrar o projeto
+                    </button>
+                    <a th:href="@{/financeiro/liberacoes}" class="btn btn-link">Voltar</a>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

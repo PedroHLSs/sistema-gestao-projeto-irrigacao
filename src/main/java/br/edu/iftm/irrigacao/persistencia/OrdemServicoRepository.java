@@ -1,5 +1,6 @@
 package br.edu.iftm.irrigacao.persistencia;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,4 +55,12 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long
             order by o.dataProgramada, o.id
             """)
     List<OrdemServico> abertasDoTecnico(@Param("usuarioId") Long usuarioId);
+
+    /** Ordens abertas do técnico programadas para o dia, para o painel inicial. */
+    @Query("""
+            select count(distinct o) from OrdemServico o
+            join o.tecnicos t
+            where t.id = :usuarioId and o.dataProgramada = :dia and o.dataConclusao is null
+            """)
+    long contarAbertasDoTecnicoNoDia(@Param("usuarioId") Long usuarioId, @Param("dia") LocalDate dia);
 }

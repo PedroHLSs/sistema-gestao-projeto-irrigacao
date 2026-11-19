@@ -44,4 +44,7 @@ public interface CotacaoRepository extends JpaRepository<Cotacao, Long> {
             order by p.codigo, m.descricao
             """)
     List<Cotacao> listarPorSituacao(@Param("situacao") SituacaoCotacao situacao);
+
+    @Query("select count(c) from Cotacao c where c.situacao = :situacao")
+    long contarNaSituacao(@Param("situacao") SituacaoCotacao situacao);
 }

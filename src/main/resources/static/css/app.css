@@ -290,6 +290,32 @@ main {
     min-width: 3.25rem;
 }
 
+/* Painel inicial */
+.painel-indicador {
+    transition: border-color 0.15s ease-in-out;
+}
+
+.painel-indicador:hover,
+.painel-indicador:focus {
+    border-color: var(--app-primaria);
+}
+
+.painel-icone {
+    color: var(--app-primaria);
+}
+
+.painel-numero {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--app-primaria-escura);
+    font-variant-numeric: tabular-nums;
+}
+
+.painel-situacoes {
+    max-width: 480px;
+}
+
 /* Página de erro */
 .error-status {
     font-size: 5rem;

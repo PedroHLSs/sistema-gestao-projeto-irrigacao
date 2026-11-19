@@ -43,6 +43,15 @@
                         <dt>Abertura</dt>
                         <dd th:text="${#temporals.format(projeto.dataAbertura, 'dd/MM/yyyy')}">16/11/2026</dd>
                     </div>
+                    <!-- Garantia do projeto encerrado (RF21), calculada com a data de hoje -->
+                    <div class="col-12" th:if="${garantia != null}">
+                        <dt>Garantia</dt>
+                        <dd class="mb-0">
+                            <span th:text="|Até ${#temporals.format(garantia.fim, 'dd/MM/yyyy')}|">Até 16/11/2027</span>
+                            <span th:if="${garantia.vigente}" class="badge text-bg-success ms-1">Vigente</span>
+                            <span th:unless="${garantia.vigente}" class="badge text-bg-danger ms-1">Vencida</span>
+                        </dd>
+                    </div>
                 </dl>
             </div>
         </div>
@@ -411,29 +420,151 @@
                     </div>
                     <div class="tab-pane fade" id="aba-encerramento" role="tabpanel"
                         aria-labelledby="aba-encerramento-tab">
-                        <p class="text-muted mb-0">O projeto não foi encerrado.</p>
+                        <p th:unless="${encerrado}" class="text-muted mb-0">O projeto não foi encerrado.</p>
+                        <th:block th:if="${encerrado}" th:with="moeda=${T(br.edu.iftm.irrigacao.dominio.projeto.Moeda)}, qtd=${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade)}">
+                            <h2 class="h5">Faturamento e garantia</h2>
+                            <dl class="row dados-projeto">
+                                <div class="col-6 col-md-3">
+                                    <dt>Faturamento liberado</dt>
+                                    <dd th:text="${#temporals.format(projeto.dataLiberacaoFaturamento, 'dd/MM/yyyy')}">16/11/2026</dd>
+                                </div>
+                                <th:block th:if="${garantia != null}">
+                                    <div class="col-6 col-md-3">
+                                        <dt>Início da garantia</dt>
+                                        <dd th:text="${#temporals.format(garantia.inicio, 'dd/MM/yyyy')}">16/11/2026</dd>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <dt>Prazo</dt>
+                                        <dd th:text="|${garantia.prazoMeses} ${garantia.prazoMeses == 1 ? 'mês' : 'meses'}|">12 meses</dd>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <dt>Fim da garantia</dt>
+                                        <dd>
+                                            <span th:text="${#temporals.format(garantia.fim, 'dd/MM/yyyy')}">16/11/2027</span>
+                                            <span th:if="${garantia.vigente}" class="badge text-bg-success">Vigente</span>
+                                            <span th:unless="${garantia.vigente}" class="badge text-bg-danger">Vencida</span>
+                                        </dd>
+                                    </div>
+                                </th:block>
+                            </dl>
+
+                            <!-- Orçado x realizado (RF22) -->
+                            <h2 class="h5">Orçado x realizado</h2>
+                            <p th:replace="~{fragments/encerramento :: limitacaoCusto}"></p>
+                            <div class="table-responsive mb-4">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col"></th>
+                                            <th scope="col" class="text-end">Previsto</th>
+                                            <th scope="col" class="text-end">Realizado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <th scope="row">Valor da proposta aprovada</th>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(quadro.apuracao.valorTotal)}">R$ 2.488,00</td>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(quadro.apuracao.valorTotal)}">R$ 2.488,00</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row">Custo</th>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(quadro.apuracao.custoOrcado)}">R$ 1.554,00</td>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(quadro.apuracao.custoRealizado)}">R$ 1.329,60</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row">Margem</th>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(quadro.apuracao.margemPrevista)}">R$ 934,00</td>
+                                            <td class="text-end text-nowrap fw-semibold" th:text="${moeda.formatar(quadro.apuracao.margemReal)}">R$ 1.158,40</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row">Margem sobre o valor</th>
+                                            <td class="text-end text-nowrap" th:text="${moeda.percentual(quadro.apuracao.margemPrevistaPercentual)}">37,54%</td>
+                                            <td class="text-end text-nowrap fw-semibold" th:text="${moeda.percentual(quadro.apuracao.margemRealPercentual)}">46,56%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h3 class="h6">Materiais</h3>
+                            <div class="table-responsive mb-4">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Material</th>
+                                            <th scope="col" class="text-end">Previsto</th>
+                                            <th scope="col" class="text-end">Apontado</th>
+                                            <th scope="col" class="text-end">Diferença</th>
+                                            <th scope="col" class="text-end">Custo unitário atual</th>
+                                            <th scope="col" class="text-end">Custo apontado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="m : ${quadro.materiais}">
+                                            <td>
+                                                <span class="fw-semibold" th:text="${m.codigo}">TB-PVC-050</span>
+                                                <span class="small text-muted" th:text="${m.descricao}">Tubo PVC</span>
+                                            </td>
+                                            <td class="text-end text-nowrap" th:text="|${qtd.formatar(m.previsto)} ${m.unidade}|">20 barra</td>
+                                            <td class="text-end text-nowrap" th:text="|${qtd.formatar(m.apontado)} ${m.unidade}|">17 barra</td>
+                                            <td class="text-end text-nowrap" th:text="${m.diferenca.signum() == 0} ? '0' : ${qtd.comSinal(m.diferenca)}">-3</td>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(m.custoUnitario)}">R$ 44,80</td>
+                                            <td class="text-end text-nowrap" th:text="${moeda.formatar(m.custoApontado)}">R$ 761,60</td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th scope="row" colspan="5" class="text-end">Total de materiais</th>
+                                            <td class="text-end text-nowrap fw-bold" th:text="${moeda.formatar(quadro.custoMateriaisEmCentavos)}">R$ 969,60</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <h3 class="h6">Horas</h3>
+                            <dl class="row dados-projeto mb-0">
+                                <div class="col-6 col-md-3">
+                                    <dt>Previstas</dt>
+                                    <dd th:text="${quadro.horasPrevistas != null} ? |${qtd.formatar(quadro.horasPrevistas)} h| : '—'">10 h</dd>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <dt>Apontadas</dt>
+                                    <dd th:text="|${qtd.formatar(quadro.horasApontadas)} h|">8 h</dd>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <dt>Diferença</dt>
+                                    <dd th:text="${quadro.diferencaHoras == null} ? '—' : (${quadro.diferencaHoras.signum() == 0} ? '0 h' : |${qtd.comSinal(quadro.diferencaHoras)} h|)">-2 h</dd>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <dt>Custo apontado</dt>
+                                    <dd th:text="${moeda.formatar(quadro.custoHorasEmCentavos)}">R$ 360,00</dd>
+                                </div>
+                            </dl>
+                        </th:block>
                     </div>
                 </div>
             </div>
 
-            <!-- Linha do tempo das situações (RF21) -->
+            <!-- Linha do tempo: mudanças de situação e registros de cada etapa (RF21) -->
             <div class="col-12 col-lg-4">
                 <h2 class="h5">Linha do tempo</h2>
                 <ol class="linha-tempo">
-                    <li th:each="h : ${historico}">
-                        <div class="small text-muted" th:text="${#temporals.format(h.dataHora, 'dd/MM/yyyy HH:mm')}">
+                    <li th:each="e : ${linhaDoTempo}">
+                        <div class="small text-muted" th:text="${#temporals.format(e.dataHora, 'dd/MM/yyyy HH:mm')}">
                             16/11/2026 09:00</div>
-                        <div th:if="${h.situacaoAnterior == null}">
-                            Projeto aberto em
-                            <span th:replace="~{fragments/situacao :: badge(${h.situacaoNova})}"></span>
-                        </div>
-                        <div th:unless="${h.situacaoAnterior == null}">
-                            <span th:replace="~{fragments/situacao :: badge(${h.situacaoAnterior})}"></span>
-                            <i class="fas fa-arrow-right mx-1 text-muted" aria-label="para"></i>
-                            <span th:replace="~{fragments/situacao :: badge(${h.situacaoNova})}"></span>
-                        </div>
-                        <div class="small" th:if="${h.observacao != null}" th:text="${h.observacao}">Observação</div>
-                        <div class="small text-muted">por <span th:text="${h.usuario != null} ? ${h.usuario.nome} : 'rotina automática'">Usuário</span></div>
+                        <div th:if="${e.titulo != null}" class="fw-semibold" th:text="${e.titulo}">Medição dentro do parâmetro</div>
+                        <th:block th:if="${e.situacaoNova != null}">
+                            <div th:if="${e.situacaoAnterior == null}">
+                                Projeto aberto em
+                                <span th:replace="~{fragments/situacao :: badge(${e.situacaoNova})}"></span>
+                            </div>
+                            <div th:unless="${e.situacaoAnterior == null}">
+                                <span th:replace="~{fragments/situacao :: badge(${e.situacaoAnterior})}"></span>
+                                <i class="fas fa-arrow-right mx-1 text-muted" aria-label="para"></i>
+                                <span th:replace="~{fragments/situacao :: badge(${e.situacaoNova})}"></span>
+                            </div>
+                        </th:block>
+                        <div class="small" th:if="${e.detalhe != null}" th:text="${e.detalhe}">Observação</div>
+                        <div class="small text-muted">por <span th:text="${e.usuario != null} ? ${e.usuario} : 'rotina automática'">Usuário</span></div>
                     </li>
                 </ol>
             </div>

@@ -52,10 +52,13 @@
                             <a class="nav-link" th:href="@{/campo/minhas-os}"><i class="fas fa-clipboard-list me-2"></i>Campo</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('FINANCEIRO', 'DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" href="#"><i class="fas fa-file-invoice-dollar me-2"></i>Financeiro</a>
+                            <a class="nav-link" th:href="@{/financeiro/liberacoes}"><i class="fas fa-file-invoice-dollar me-2"></i>Financeiro</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
                             <a class="nav-link" th:href="@{/diretoria/aprovacoes}"><i class="fas fa-chart-line me-2"></i>Diretoria</a>
+                        </li>
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
+                            <a class="nav-link" th:href="@{/diretoria/orcado-realizado}"><i class="fas fa-scale-balanced me-2"></i>Orçado x realizado</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
                             <a class="nav-link" th:href="@{/admin/usuarios}"><i class="fas fa-users-gear me-2"></i>Usuários</a>

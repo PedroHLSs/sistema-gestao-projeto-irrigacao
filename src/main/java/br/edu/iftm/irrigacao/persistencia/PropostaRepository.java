@@ -1,5 +1,7 @@
 package br.edu.iftm.irrigacao.persistencia;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 import br.edu.iftm.irrigacao.dominio.comercial.Proposta;
 import br.edu.iftm.irrigacao.dominio.comercial.SituacaoProposta;
+import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 
 public interface PropostaRepository extends JpaRepository<Proposta, Long> {
 
@@ -66,5 +69,43 @@ public interface PropostaRepository extends JpaRepository<Proposta, Long> {
             where pj.responsavel.id = :usuarioId and p.situacao = :situacao
             """)
     List<Proposta> listarDoResponsavel(@Param("usuarioId") Long usuarioId,
+            @Param("situacao") SituacaoProposta situacao);
+
+    /** A proposta do projeto numa situação, como a APROVADA do orçado x realizado (RF22). */
+    Optional<Proposta> findFirstByProjetoIdAndSituacao(Long projetoId, SituacaoProposta situacao);
+
+    /** Soma do valor das propostas numa situação, dos projetos numa situação (RF22). */
+    @Query("""
+            select coalesce(sum(p.valorTotal), 0) from Proposta p
+            where p.situacao = :situacao and p.projeto.situacao = :situacaoProjeto
+            """)
+    BigDecimal somarValorDosProjetos(@Param("situacao") SituacaoProposta situacao,
+            @Param("situacaoProjeto") SituacaoProjeto situacaoProjeto);
+
+    @Query("select count(p) from Proposta p where p.situacao = :situacao")
+    long contarNaSituacao(@Param("situacao") SituacaoProposta situacao);
+
+    /** Linha de {@link #contarDoResponsavelPorValidade}. */
+    interface TotalPorValidade {
+        LocalDate getDataEnvio();
+
+        Integer getValidadeDias();
+
+        long getTotal();
+    }
+
+    /**
+     * Propostas numa situação dos projetos de um responsável, agrupadas pelo que define a validade.
+     * A data de validade é calculada e não existe no banco, por isso o alerta de vencimento (RF11)
+     * conta sobre estes grupos.
+     */
+    @Query("""
+            select p.dataEnvio as dataEnvio, p.validadeDias as validadeDias, count(p) as total
+            from Proposta p
+            where p.projeto.responsavel.id = :usuarioId and p.situacao = :situacao
+              and p.dataEnvio is not null and p.validadeDias is not null
+            group by p.dataEnvio, p.validadeDias
+            """)
+    List<TotalPorValidade> contarDoResponsavelPorValidade(@Param("usuarioId") Long usuarioId,
             @Param("situacao") SituacaoProposta situacao);
 }

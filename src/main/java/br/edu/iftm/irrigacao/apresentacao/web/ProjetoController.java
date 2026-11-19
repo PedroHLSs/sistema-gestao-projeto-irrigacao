@@ -27,6 +27,7 @@ import br.edu.iftm.irrigacao.dominio.execucao.MedicaoService;
 import br.edu.iftm.irrigacao.dominio.projeto.FotoArmazenada;
 import br.edu.iftm.irrigacao.dominio.projeto.Levantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.LevantamentoService;
+import br.edu.iftm.irrigacao.dominio.projeto.LinhaDoTempoService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.ProjetoService;
 import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
@@ -51,10 +52,13 @@ public class ProjetoController {
     private final EstoqueService estoqueService;
     private final MedicaoService medicaoService;
     private final PainelExecucao painelExecucao;
+    private final PainelEncerramento painelEncerramento;
+    private final LinhaDoTempoService linhaDoTempoService;
 
     public ProjetoController(ProjetoService projetoService, LevantamentoService levantamentoService,
             ListaTecnicaService listaTecnicaService, PropostaService propostaService, EstoqueService estoqueService,
-            MedicaoService medicaoService, PainelExecucao painelExecucao) {
+            MedicaoService medicaoService, PainelExecucao painelExecucao, PainelEncerramento painelEncerramento,
+            LinhaDoTempoService linhaDoTempoService) {
         this.projetoService = projetoService;
         this.levantamentoService = levantamentoService;
         this.listaTecnicaService = listaTecnicaService;
@@ -62,6 +66,8 @@ public class ProjetoController {
         this.estoqueService = estoqueService;
         this.medicaoService = medicaoService;
         this.painelExecucao = painelExecucao;
+        this.painelEncerramento = painelEncerramento;
+        this.linhaDoTempoService = linhaDoTempoService;
     }
 
     /**
@@ -86,7 +92,7 @@ public class ProjetoController {
         List<ItemProjeto> itens = listaTecnicaService.listar(id);
         boolean podePreencher = levantamentoService.podePreencher(projeto);
         model.addAttribute("projeto", projeto);
-        model.addAttribute("historico", projetoService.historico(id));
+        model.addAttribute("linhaDoTempo", linhaDoTempoService.doProjeto(id));
         model.addAttribute("levantamento", levantamento);
         model.addAttribute("faltantes", faltantes);
         model.addAttribute("itens", itens);
@@ -105,6 +111,8 @@ public class ProjetoController {
         model.addAttribute("podeGerarOrcamento", orcando && propostaService.abertaDoProjeto(id).isEmpty());
         // Aba Execução (RF15 a RF19)
         painelExecucao.preencher(model, projeto);
+        // Aba Encerramento (RF21, RF22)
+        painelEncerramento.preencher(model, projeto);
         return "projetos/detalheProjeto";
     }
 

@@ -275,10 +275,24 @@ public class PropostaServiceImpl implements PropostaService {
     @Transactional(readOnly = true)
     public List<Proposta> alertarVencimento(Long usuarioId) {
         LocalDate hoje = LocalDate.now(clock);
-        LocalDate limite = hoje.plusDays(parametros.getDiasAlerta());
         return propostaRepository.listarDoResponsavel(usuarioId, SituacaoProposta.ENVIADA).stream()
-                .filter(proposta -> !vencida(proposta, hoje) && !proposta.getDataValidade().isAfter(limite))
+                .filter(proposta -> entraNoAlerta(proposta.getDataValidade(), hoje))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long contarAlertasDeVencimento(Long usuarioId) {
+        LocalDate hoje = LocalDate.now(clock);
+        return propostaRepository.contarDoResponsavelPorValidade(usuarioId, SituacaoProposta.ENVIADA).stream()
+                .filter(grupo -> entraNoAlerta(grupo.getDataEnvio().plusDays(grupo.getValidadeDias()), hoje))
+                .mapToLong(PropostaRepository.TotalPorValidade::getTotal)
+                .sum();
+    }
+
+    /** Ainda vale e vence em até {@code irrigacao.proposta.dias-alerta} dias, contando hoje. */
+    private boolean entraNoAlerta(LocalDate dataValidade, LocalDate hoje) {
+        return !hoje.isAfter(dataValidade) && !dataValidade.isAfter(hoje.plusDays(parametros.getDiasAlerta()));
     }
 
     // ---------- Resposta do cliente (RF12, G3) ----------

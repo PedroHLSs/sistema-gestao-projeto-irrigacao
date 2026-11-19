@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Orçado x realizado dos projetos encerrados (RF22) -->
+<head th:replace="~{fragments/head :: head('Orçado x realizado')}">
+</head>
+
+<body th:with="moeda=${T(br.edu.iftm.irrigacao.dominio.projeto.Moeda)}">
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Orçado x realizado</h1>
+
+        <p th:replace="~{fragments/encerramento :: limitacaoCusto}"></p>
+
+        <!-- Período da liberação do faturamento, com as duas datas inclusive -->
+        <form th:action="@{/diretoria/orcado-realizado}" th:object="${filtro}" method="get"
+            class="row g-2 align-items-end mb-3" novalidate>
+            <div class="col-6 col-md-3">
+                <label for="de" class="form-label">Encerrados de</label>
+                <input type="date" class="form-control" th:field="*{de}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{de}">Erro da data</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label for="ate" class="form-label">Até</label>
+                <input type="date" class="form-control" th:field="*{ate}"
+                    th:classappend="${#fields.hasErrors('ate') or #fields.hasErrors('periodoValido')} ? 'is-invalid'">
+                <div class="invalid-feedback" th:errors="*{ate}">Erro da data</div>
+                <div class="invalid-feedback" th:errors="*{periodoValido}">Período inválido</div>
+            </div>
+            <div class="col-12 col-md-6 d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-filter me-1"></i>Filtrar
+                </button>
+                <a th:href="@{/diretoria/orcado-realizado}" class="btn btn-link">Limpar</a>
+                <a th:unless="${#fields.hasAnyErrors()}" th:href="@{/diretoria/orcado-realizado/exportar(de=${filtro.de},ate=${filtro.ate})}"
+                    class="btn btn-primary ms-md-auto">
+                    <i class="fas fa-file-csv me-2"></i>Exportar CSV
+                </a>
+            </div>
+        </form>
+
+        <p th:if="${#lists.isEmpty(linhas)}" class="alert alert-secondary">Nenhum projeto encerrado no período.</p>
+
+        <div th:unless="${#lists.isEmpty(linhas)}" class="table-responsive bg-white border rounded shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Projeto</th>
+                        <th scope="col">Encerrado em</th>
+                        <th scope="col" class="text-end">Valor total</th>
+                        <th scope="col" class="text-end">Custo orçado</th>
+                        <th scope="col" class="text-end">Custo realizado</th>
+                        <th scope="col" class="text-end">Margem prevista</th>
+                        <th scope="col" class="text-end">Margem real</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="l : ${linhas}">
+                        <td>
+                            <a th:href="@{/projetos/{id}(id=${l.projetoId})}" class="fw-semibold" th:text="${l.codigo}">PRJ-2026-0001</a>
+                            <div class="small text-muted" th:text="${l.produtor}">Produtor</div>
+                        </td>
+                        <td class="text-nowrap" th:text="${#temporals.format(l.dataLiberacao, 'dd/MM/yyyy')}">16/11/2026</td>
+                        <td class="text-end text-nowrap" th:text="${moeda.formatar(l.apuracao.valorTotal)}">R$ 2.488,00</td>
+                        <td class="text-end text-nowrap" th:text="${moeda.formatar(l.apuracao.custoOrcado)}">R$ 1.554,00</td>
+                        <td class="text-end text-nowrap" th:text="${moeda.formatar(l.apuracao.custoRealizado)}">R$ 1.329,60</td>
+                        <td class="text-end text-nowrap">
+                            <span th:text="${moeda.formatar(l.apuracao.margemPrevista)}">R$ 934,00</span>
+                            <div class="small text-muted" th:text="${moeda.percentual(l.apuracao.margemPrevistaPercentual)}">37,54%</div>
+                        </td>
+                        <td class="text-end text-nowrap" th:classappend="${l.apuracao.margemReal != null and l.apuracao.margemReal.signum() < 0} ? 'text-danger'">
+                            <span class="fw-semibold" th:text="${moeda.formatar(l.apuracao.margemReal)}">R$ 1.158,40</span>
+                            <div class="small" th:text="${moeda.percentual(l.apuracao.margemRealPercentual)}">46,56%</div>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <th scope="row" colspan="2">Total do período</th>
+                        <td class="text-end text-nowrap" th:text="${moeda.formatar(total.valorTotal)}">R$ 2.488,00</td>
+                        <td class="text-end text-nowrap" th:text="${moeda.formatar(total.custoOrcado)}">R$ 1.554,00</td>
+                        <td class="text-end text-nowrap" th:text="${moeda.formatar(total.custoRealizado)}">R$ 1.329,60</td>
+                        <td class="text-end text-nowrap">
+                            <span th:text="${moeda.formatar(total.margemPrevista)}">R$ 934,00</span>
+                            <div class="small" th:text="${moeda.percentual(total.margemPrevistaPercentual)}">37,54%</div>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <span th:text="${moeda.formatar(total.margemReal)}">R$ 1.158,40</span>
+                            <div class="small" th:text="${moeda.percentual(total.margemRealPercentual)}">46,56%</div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

@@ -42,6 +42,7 @@ import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
  *                 POST da requisição de compra só para COMPRADOR e da separação só para ALMOXARIFE)
  * /campo/**       TECNICO_CAMPO, PROJETISTA
  * /financeiro/**  FINANCEIRO, DIRETORIA
+ *                 (a liberação de um projeto, /financeiro/liberacoes/{id}, só para FINANCEIRO)
  * /diretoria/**   DIRETORIA
  * /admin/**       ADMINISTRADOR
  * </pre>
@@ -88,6 +89,8 @@ public class SecurityConfig {
                     .hasAnyAuthority(comAdministrador(ALMOXARIFE))
                 .requestMatchers("/estoque/**").hasAnyAuthority(comAdministrador(ALMOXARIFE, COMPRADOR))
                 .requestMatchers("/campo/**").hasAnyAuthority(comAdministrador(TECNICO_CAMPO, PROJETISTA))
+                // Liberação do faturamento (RF20): a diretoria acompanha a fila, quem libera é o financeiro
+                .requestMatchers("/financeiro/liberacoes/*").hasAnyAuthority(comAdministrador(FINANCEIRO))
                 .requestMatchers("/financeiro/**").hasAnyAuthority(comAdministrador(FINANCEIRO, DIRETORIA))
                 .requestMatchers("/diretoria/**").hasAnyAuthority(comAdministrador(DIRETORIA))
                 .requestMatchers("/admin/**").hasAnyAuthority(comAdministrador())

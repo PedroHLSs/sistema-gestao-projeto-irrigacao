@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 
+<!-- Painel inicial: cada perfil vê só a própria parte -->
 <head th:replace="~{fragments/head :: head('Início')}">
 </head>
 
@@ -10,10 +11,101 @@
     <main class="container py-4">
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
-        <h1 class="page-title">Sistema de Gestão de Projetos de Irrigação</h1>
-        <p class="lead text-muted">
-            Acompanhamento dos projetos de irrigação, do levantamento em campo ao aceite do produtor.
-        </p>
+        <h1 class="page-title">Início</h1>
+
+        <!-- Vendedor -->
+        <section th:if="${painel.vendedor != null}" class="mb-4">
+            <h2 class="h5">Seus projetos</h2>
+            <p th:if="${#lists.isEmpty(painel.vendedor.projetosPorSituacao)}" class="text-muted">Você ainda não tem projetos.</p>
+            <ul th:unless="${#lists.isEmpty(painel.vendedor.projetosPorSituacao)}" class="list-group mb-3 painel-situacoes">
+                <li th:each="linha : ${painel.vendedor.projetosPorSituacao}"
+                    class="list-group-item d-flex justify-content-between align-items-center">
+                    <span th:replace="~{fragments/situacao :: badge(${linha.situacao})}"></span>
+                    <span class="fw-semibold" th:text="${linha.total}">2</span>
+                </li>
+            </ul>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.vendedor.propostasPertoDoVencimento}, 'Propostas perto do vencimento', @{/comercial/propostas}, 'fa-hourglass-half')}"></a>
+                </div>
+                <div class="col-12 col-md-6">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.vendedor.pendencias}, 'Pendências abertas nos seus projetos', @{/projetos(situacao='TRATANDO_PENDENCIA')}, 'fa-triangle-exclamation')}"></a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Projetista -->
+        <section th:if="${painel.projetista != null}" class="mb-4">
+            <h2 class="h5">Engenharia</h2>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.projetista.levantamentosCompletos}, 'Levantamentos completos aguardando dimensionamento', @{/projetos(situacao='EM_LEVANTAMENTO')}, 'fa-compass-drafting')}"></a>
+                </div>
+                <div class="col-12 col-md-6">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.projetista.projetosEmProgramacao}, 'Projetos em programação da execução', @{/projetos(situacao='PROGRAMANDO_EXECUCAO')}, 'fa-calendar-plus')}"></a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Almoxarife e comprador -->
+        <section th:if="${painel.estoque != null}" class="mb-4">
+            <h2 class="h5">Almoxarifado e compras</h2>
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.requisicoesAbertas}, 'Requisições de compra abertas', @{/estoque/requisicoes}, 'fa-truck-fast')}"></a>
+                </div>
+                <div class="col-12 col-md-4">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.separacoesPendentes}, 'Separações pendentes', @{/projetos(situacao='PREPARANDO_MATERIAL')}, 'fa-dolly')}"></a>
+                </div>
+                <div class="col-12 col-md-4">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.sobrasAReceber}, 'Sobras a receber', @{/projetos(situacao='FINALIZANDO_EXECUCAO')}, 'fa-box-open')}"></a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Técnico de campo -->
+        <section th:if="${painel.tecnico != null}" class="mb-4 tela-campo">
+            <h2 class="h5">Hoje</h2>
+            <a th:replace="~{fragments/encerramento :: indicador(${painel.tecnico.ordensDoDia}, 'Ordens de serviço para hoje', @{/campo/minhas-os}, 'fa-screwdriver-wrench')}"></a>
+        </section>
+
+        <!-- Financeiro -->
+        <section th:if="${painel.financeiro != null}" class="mb-4">
+            <h2 class="h5">Faturamento</h2>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.financeiro.projetosParaLiberar}, 'Projetos para liberar', @{/financeiro/liberacoes}, 'fa-file-invoice-dollar')}"></a>
+                </div>
+                <div class="col-12 col-md-6">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.financeiro.aguardandoSobras}, 'Projetos aguardando as sobras', @{/financeiro/liberacoes}, 'fa-box-open')}"></a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Diretoria -->
+        <section th:if="${painel.diretoria != null}" class="mb-4">
+            <h2 class="h5">Gestão</h2>
+            <div class="row g-3">
+                <div class="col-12 col-lg-4">
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.diretoria.propostasAguardando}, 'Propostas aguardando a diretoria', @{/diretoria/aprovacoes}, 'fa-file-signature')}"></a>
+                </div>
+                <div class="col-12 col-lg-8">
+                    <a th:href="@{/diretoria/orcado-realizado}" class="card shadow-sm h-100 text-decoration-none painel-indicador"
+                        th:with="r=${painel.diretoria.orcadoRealizado}, moeda=${T(br.edu.iftm.irrigacao.dominio.projeto.Moeda)}">
+                        <span class="card-body d-block text-body">
+                            <span class="d-block fw-semibold mb-2"
+                                th:text="|Orçado x realizado de ${r.projetos} ${r.projetos == 1 ? 'projeto encerrado' : 'projetos encerrados'}|">Orçado x realizado</span>
+                            <span class="row g-2">
+                                <span class="col-6 col-md-3 d-block"><span class="d-block small text-muted">Valor vendido</span><span th:text="${moeda.formatar(r.apuracao.valorTotal)}">R$ 0,00</span></span>
+                                <span class="col-6 col-md-3 d-block"><span class="d-block small text-muted">Custo orçado</span><span th:text="${moeda.formatar(r.apuracao.custoOrcado)}">R$ 0,00</span></span>
+                                <span class="col-6 col-md-3 d-block"><span class="d-block small text-muted">Custo realizado</span><span th:text="${moeda.formatar(r.apuracao.custoRealizado)}">R$ 0,00</span></span>
+                                <span class="col-6 col-md-3 d-block"><span class="d-block small text-muted">Margem real</span><span class="fw-semibold" th:text="|${moeda.formatar(r.apuracao.margemReal)} (${moeda.percentual(r.apuracao.margemRealPercentual)})|">R$ 0,00 (0,00%)</span></span>
+                            </span>
+                        </span>
+                    </a>
+                </div>
+            </div>
+        </section>
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}"></th:block>

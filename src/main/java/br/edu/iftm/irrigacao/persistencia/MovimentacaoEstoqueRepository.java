@@ -52,10 +52,11 @@ public interface MovimentacaoEstoqueRepository extends JpaRepository<Movimentaca
     BigDecimal somar(@Param("projetoId") Long projetoId, @Param("materialId") Long materialId,
             @Param("tipo") TipoMovimentacao tipo);
 
-    /** Movimentações de um projeto, com o material já carregado. */
+    /** Movimentações de um projeto, com o material e o usuário já carregados. */
     @Query("""
             select m from MovimentacaoEstoque m
             join fetch m.material
+            left join fetch m.usuario
             where m.projeto.id = :projetoId
             order by m.dataHora, m.id
             """)

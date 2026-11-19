@@ -35,6 +35,6 @@ public class AlertaPropostasAdvice {
         boolean doComercial = autenticacao.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(PERFIS_DO_COMERCIAL::contains);
-        return doComercial ? propostaService.alertarVencimento(usuario.getId()).size() : 0;
+        return doComercial ? (int) propostaService.contarAlertasDeVencimento(usuario.getId()) : 0;
     }
 }
