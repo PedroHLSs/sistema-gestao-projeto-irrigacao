@@ -2,84 +2,145 @@
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <body>
-    <header th:fragment="header">
-        <nav class="navbar navbar-expand-lg navbar-dark app-navbar">
+    <header th:fragment="header" class="app-cabecalho">
+        <!-- Sem login só aparece a marca: o menu e os dados do usuário dependem da sessão -->
+        <nav class="navbar navbar-dark app-navbar" sec:authorize="!isAuthenticated()">
             <div class="container">
                 <a class="navbar-brand" th:href="@{/}">
                     <i class="fas fa-droplet me-2"></i>Gestão de Irrigação
                 </a>
-
-                <!-- Sem login só aparece a marca: o menu e os dados do usuário dependem da sessão -->
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal"
-                    aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menu"
-                    sec:authorize="isAuthenticated()">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <div class="collapse navbar-collapse" id="menuPrincipal" sec:authorize="isAuthenticated()">
-                    <!--
-                        Um item por área do sistema, visível para os perfis que o SecurityConfig libera
-                        no prefixo de URL da área (RNF04). O ADMINISTRADOR vê todos.
-                        As áreas com href="#" ganham a rota quando as telas entrarem, nas próximas etapas.
-                    -->
-                    <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" th:href="@{/}"><i class="fas fa-house me-2"></i>Início</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" th:href="@{/projetos}"><i class="fas fa-diagram-project me-2"></i>Projetos</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" th:href="@{/projetos/agenda}"><i class="fas fa-calendar-week me-2"></i>Agenda</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/comercial/produtores}"><i class="fas fa-handshake me-2"></i>Comercial</a>
-                        </li>
-                        <!-- O badge é o alertarVencimento() da Figura 9: propostas enviadas do usuário perto de vencer -->
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/comercial/propostas}"><i class="fas fa-file-signature me-2"></i>Propostas<span
-                                    th:if="${propostasVencendo != null and propostasVencendo > 0}"
-                                    class="badge rounded-pill text-bg-warning ms-1" th:text="${propostasVencendo}"
-                                    th:title="|${propostasVencendo} proposta(s) enviada(s) perto de vencer|">2</span></a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
-                            <a class="nav-link" href="#"><i class="fas fa-compass-drafting me-2"></i>Engenharia</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/estoque/materiais}"><i class="fas fa-boxes-stacked me-2"></i>Estoque</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/campo/minhas-os}"><i class="fas fa-clipboard-list me-2"></i>Campo</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('FINANCEIRO', 'DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/financeiro/liberacoes}"><i class="fas fa-file-invoice-dollar me-2"></i>Financeiro</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/diretoria/aprovacoes}"><i class="fas fa-chart-line me-2"></i>Diretoria</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('FINANCEIRO', 'DIRETORIA', 'ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/diretoria/orcado-realizado}"><i class="fas fa-scale-balanced me-2"></i>Orçado x realizado</a>
-                        </li>
-                        <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
-                            <a class="nav-link" th:href="@{/admin/usuarios}"><i class="fas fa-users-gear me-2"></i>Usuários</a>
-                        </li>
-                    </ul>
-
-                    <div class="app-usuario">
-                        <span class="navbar-text" th:if="${usuarioAtual != null}">
-                            <i class="fas fa-circle-user me-1"></i>
-                            <span class="app-usuario-nome" th:text="${usuarioAtual.nome}">Nome do usuário</span>
-                            <span class="badge app-usuario-perfil ms-1" th:text="${usuarioAtual.perfil}">Perfil</span>
-                        </span>
-                        <form th:action="@{/logout}" method="post">
-                            <button type="submit" class="btn btn-outline-light btn-sm">
-                                <i class="fas fa-right-from-bracket me-1"></i>Sair
-                            </button>
-                        </form>
-                    </div>
-                </div>
             </div>
         </nav>
+
+        <th:block sec:authorize="isAuthenticated()">
+            <!-- Aplica o menu recolhido (guardado neste navegador) antes de desenhar a página, para ele não piscar aberto -->
+            <script>
+                try {
+                    if (localStorage.getItem('menuRecolhido') === '1') {
+                        document.documentElement.classList.add('menu-recolhido');
+                    }
+                } catch (e) { }
+            </script>
+
+            <!-- Celular e tablet: barra no alto com o botão que abre o menu por cima da página -->
+            <div class="app-topbar">
+                <button type="button" class="app-sidebar-botao" data-menu-abrir aria-controls="menuLateral"
+                    aria-expanded="false" aria-label="Abrir menu"><i class="bi bi-list"></i></button>
+                <a class="app-marca" th:href="@{/}">
+                    <span class="app-marca-logo"><i class="bi bi-droplet-fill"></i></span>
+                    <span class="app-marca-nome">Gestão de Irrigação</span>
+                </a>
+            </div>
+            <div class="app-sidebar-fundo" data-menu-fundo hidden></div>
+
+            <nav class="app-sidebar" id="menuLateral" aria-label="Menu principal">
+                <div class="app-sidebar-topo">
+                    <a class="app-marca" th:href="@{/}">
+                        <span class="app-marca-logo"><i class="bi bi-droplet-fill"></i></span>
+                        <span class="app-marca-nome">Gestão de Irrigação</span>
+                    </a>
+                    <button type="button" class="app-sidebar-botao" data-menu-recolher aria-controls="menuLateral"
+                        aria-expanded="true" aria-label="Recolher menu"><i class="bi bi-layout-sidebar"></i></button>
+                    <button type="button" class="app-sidebar-botao" data-menu-fechar
+                        aria-label="Fechar menu"><i class="bi bi-x-lg"></i></button>
+                </div>
+
+                <!--
+                    Um item por área do sistema, visível para os perfis que o SecurityConfig libera
+                    no prefixo de URL da área (RNF04). O ADMINISTRADOR vê todos. Cada grupo só aparece
+                    quando o perfil vê pelo menos um item dele.
+                    As áreas com href="#" ganham a rota quando as telas entrarem, nas próximas etapas.
+                -->
+                <div class="app-sidebar-corpo">
+                    <div class="app-menu-grupo">
+                        <p class="app-menu-secao">Painel</p>
+                        <ul class="app-menu">
+                            <li>
+                                <a class="app-menu-link" th:href="@{/}"><i class="bi bi-house"></i>Início</a>
+                            </li>
+                            <li>
+                                <a class="app-menu-link" th:href="@{/projetos}"><i class="bi bi-diagram-3"></i>Projetos</a>
+                                <ul class="app-submenu">
+                                    <li>
+                                        <a class="app-menu-link" th:href="@{/projetos/agenda}"><i class="bi bi-calendar-week"></i>Agenda</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="app-menu-grupo"
+                        sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'PROJETISTA', 'ALMOXARIFE', 'COMPRADOR', 'TECNICO_CAMPO', 'ADMINISTRADOR')">
+                        <p class="app-menu-secao">Operação</p>
+                        <ul class="app-menu">
+                            <li sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
+                                <a class="app-menu-link" th:href="@{/comercial/produtores}"><i class="bi bi-briefcase"></i>Comercial</a>
+                                <ul class="app-submenu">
+                                    <!-- O aviso é o alertarVencimento() da Figura 9: propostas enviadas do usuário perto de vencer -->
+                                    <li>
+                                        <a class="app-menu-link" th:href="@{/comercial/propostas}"><i class="bi bi-file-earmark-text"></i>Propostas<span
+                                                th:if="${propostasVencendo != null and propostasVencendo > 0}"
+                                                class="badge rounded-pill text-bg-warning app-menu-aviso" th:text="${propostasVencendo}"
+                                                th:title="|${propostasVencendo} proposta(s) enviada(s) perto de vencer|">2</span></a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
+                                <a class="app-menu-link" href="#"><i class="bi bi-vector-pen"></i>Engenharia</a>
+                            </li>
+                            <li sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')">
+                                <a class="app-menu-link" th:href="@{/estoque/materiais}"><i class="bi bi-box-seam"></i>Estoque</a>
+                            </li>
+                            <li sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')">
+                                <a class="app-menu-link" th:href="@{/campo/minhas-os}"><i class="bi bi-clipboard-check"></i>Campo</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="app-menu-grupo" sec:authorize="hasAnyAuthority('FINANCEIRO', 'DIRETORIA', 'ADMINISTRADOR')">
+                        <p class="app-menu-secao">Gestão</p>
+                        <ul class="app-menu">
+                            <li>
+                                <a class="app-menu-link" th:href="@{/financeiro/liberacoes}"><i class="bi bi-cash-coin"></i>Financeiro</a>
+                            </li>
+                            <li sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
+                                <a class="app-menu-link" th:href="@{/diretoria/aprovacoes}"><i class="bi bi-patch-check"></i>Diretoria</a>
+                            </li>
+                            <li>
+                                <a class="app-menu-link" th:href="@{/diretoria/orcado-realizado}"><i class="bi bi-bar-chart-line"></i>Orçado x realizado</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="app-menu-grupo" sec:authorize="hasAuthority('ADMINISTRADOR')">
+                        <p class="app-menu-secao">Configurações</p>
+                        <ul class="app-menu">
+                            <li>
+                                <a class="app-menu-link" th:href="@{/admin/usuarios}"><i class="bi bi-people"></i>Usuários</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Usuário logado e botão de sair -->
+                <div class="app-sidebar-rodape">
+                    <th:block th:if="${usuarioAtual != null}">
+                        <span class="app-avatar" aria-hidden="true"
+                            th:data-dica="|${usuarioAtual.nome} · ${usuarioAtual.perfil}|"
+                            th:text="${#strings.isEmpty(usuarioAtual.nome) ? '?' : #strings.toUpperCase(#strings.substring(usuarioAtual.nome, 0, 1))}">N</span>
+                        <span class="app-usuario-dados">
+                            <span class="app-usuario-nome" th:text="${usuarioAtual.nome}">Nome do usuário</span>
+                            <span class="app-usuario-perfil" th:text="${usuarioAtual.perfil}">Perfil</span>
+                        </span>
+                    </th:block>
+                    <form th:action="@{/logout}" method="post">
+                        <button type="submit" class="app-sidebar-botao" aria-label="Sair" data-dica-botao>
+                            <i class="bi bi-box-arrow-right"></i>
+                        </button>
+                    </form>
+                </div>
+            </nav>
+        </th:block>
     </header>
 </body>
 

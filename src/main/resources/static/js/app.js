@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     marcarMenuAtivo();
+    prepararMenuLateral();
     pedirConfirmacao();
     filtrarSelectsDependentes();
     usarLocalizacaoDoAparelho();
@@ -26,7 +27,7 @@ function marcarMenuAtivo() {
     var caminho = window.location.pathname;
     var escolhido = null;
 
-    document.querySelectorAll('.app-navbar .nav-link').forEach(function (link) {
+    document.querySelectorAll('.app-sidebar .app-menu-link').forEach(function (link) {
         if (link.getAttribute('href') === '#') {
             return;
         }
@@ -45,6 +46,145 @@ function marcarMenuAtivo() {
         escolhido.classList.add('active');
         escolhido.setAttribute('aria-current', 'page');
     }
+}
+
+// Menu lateral (fragments/header.html). No computador, o botão do topo recolhe o menu para só os
+// ícones e a escolha fica guardada neste navegador; recolhido, o nome de cada item aparece numa
+// dica. No celular e no tablet, o botão da barra superior abre o menu por cima da página.
+function prepararMenuLateral() {
+    var menu = document.getElementById('menuLateral');
+    if (!menu) {
+        return;
+    }
+    var raiz = document.documentElement;
+    var celular = window.matchMedia('(max-width: 991.98px)');
+    var recolher = menu.querySelector('[data-menu-recolher]');
+    var fechar = menu.querySelector('[data-menu-fechar]');
+    var abrir = document.querySelector('[data-menu-abrir]');
+    var fundo = document.querySelector('[data-menu-fundo]');
+
+    // Sem o JavaScript do Bootstrap (CDN fora do ar), o menu funciona sem as dicas
+    function criarDica(elemento, titulo) {
+        if (typeof bootstrap === 'undefined') {
+            return null;
+        }
+        return new bootstrap.Tooltip(elemento, { title: titulo, placement: 'right', trigger: 'hover focus' });
+    }
+
+    // Nome do item: o data-dica ou o texto escrito nele, sem o número do aviso
+    function rotulo(elemento) {
+        if (elemento.hasAttribute('data-dica')) {
+            return elemento.getAttribute('data-dica');
+        }
+        return Array.prototype.filter.call(elemento.childNodes, function (no) {
+            return no.nodeType === Node.TEXT_NODE;
+        }).map(function (no) {
+            return no.textContent.trim();
+        }).join(' ').trim();
+    }
+
+    var dicasDoRecolhido = [];
+    menu.querySelectorAll('.app-menu-link, .app-avatar').forEach(function (elemento) {
+        var dica = criarDica(elemento, rotulo(elemento));
+        if (dica) {
+            dicasDoRecolhido.push(dica);
+        }
+    });
+
+    // Botões só de ícone: a dica é o aria-label, lido na hora porque o do recolher muda
+    var dicasDosBotoes = [];
+    menu.querySelectorAll('[data-menu-recolher], [data-dica-botao]').forEach(function (botao) {
+        var dica = criarDica(botao, function (elemento) {
+            return elemento.getAttribute('aria-label');
+        });
+        if (dica) {
+            dicasDosBotoes.push(dica);
+        }
+    });
+
+    function aplicarRecolhido(recolhido) {
+        raiz.classList.toggle('menu-recolhido', recolhido);
+        if (recolher) {
+            recolher.setAttribute('aria-expanded', String(!recolhido));
+            recolher.setAttribute('aria-label', recolhido ? 'Expandir menu' : 'Recolher menu');
+        }
+        var mostrarDicas = recolhido && !celular.matches;
+        dicasDoRecolhido.forEach(function (dica) {
+            if (mostrarDicas) {
+                dica.enable();
+            } else {
+                dica.hide();
+                dica.disable();
+            }
+        });
+    }
+
+    aplicarRecolhido(raiz.classList.contains('menu-recolhido'));
+
+    if (recolher) {
+        recolher.addEventListener('click', function () {
+            var recolhido = !raiz.classList.contains('menu-recolhido');
+            // O botão muda de lugar: a dica aberta ficaria apontando para o lugar antigo
+            dicasDosBotoes.forEach(function (dica) {
+                dica.hide();
+            });
+            aplicarRecolhido(recolhido);
+            try {
+                localStorage.setItem('menuRecolhido', recolhido ? '1' : '0');
+            } catch (e) {
+                // Navegador sem armazenamento: a escolha vale só até trocar de página
+            }
+        });
+    }
+
+    if (!abrir || !fundo) {
+        return;
+    }
+
+    function abrirMenu() {
+        menu.classList.add('aberto');
+        fundo.hidden = false;
+        abrir.setAttribute('aria-expanded', 'true');
+        document.body.classList.add('menu-aberto');
+        var primeiro = menu.querySelector('.app-menu-link.active') || menu.querySelector('.app-menu-link');
+        if (primeiro) {
+            primeiro.focus();
+        }
+    }
+
+    function fecharMenu(devolverFoco) {
+        if (!menu.classList.contains('aberto')) {
+            return;
+        }
+        menu.classList.remove('aberto');
+        fundo.hidden = true;
+        abrir.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('menu-aberto');
+        if (devolverFoco) {
+            abrir.focus();
+        }
+    }
+
+    abrir.addEventListener('click', abrirMenu);
+    fundo.addEventListener('click', function () {
+        fecharMenu(true);
+    });
+    if (fechar) {
+        fechar.addEventListener('click', function () {
+            fecharMenu(true);
+        });
+    }
+    document.addEventListener('keydown', function (evento) {
+        if (evento.key === 'Escape') {
+            fecharMenu(true);
+        }
+    });
+
+    // Girar o tablet ou aumentar a janela passa de um modo para o outro
+    celular.addEventListener('change', function () {
+        fecharMenu(false);
+        aplicarRecolhido(raiz.classList.contains('menu-recolhido'));
+    });
 }
 
 // Formulário com data-confirmar="pergunta" só é enviado depois que o usuário confirma.

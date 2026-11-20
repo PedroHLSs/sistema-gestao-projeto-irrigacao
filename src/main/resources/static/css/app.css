@@ -3,7 +3,14 @@
 :root {
     --app-primaria: #0b6e4f;
     --app-primaria-escura: #08543c;
+    --app-primaria-suave: #dff1e8;
     --app-fundo: #f5f8f6;
+    --app-borda: #e2e8e5;
+    --app-texto: #1f2a25;
+    --app-texto-suave: #5f6b65;
+    --app-realce: #eef3f0;
+    --app-menu-largura: 280px;
+    --app-menu-recolhido: 72px;
 }
 
 /* Rodapé sempre no fim da tela, mesmo em página com pouco conteúdo */
@@ -18,38 +25,431 @@ main {
     flex: 1 0 auto;
 }
 
-/* Cabeçalho */
+/* Cabeçalho sem login (página de login): só a marca, na faixa verde */
 .app-navbar {
     background-color: var(--app-primaria);
     border-bottom: 2px solid var(--app-primaria-escura);
-    /* Links mais claros que o padrão do Bootstrap, para dar contraste sobre o verde */
-    --bs-navbar-color: rgba(255, 255, 255, 0.85);
 }
 
-.app-navbar .nav-link.active {
-    font-weight: 600;
+/*
+ * Menu lateral (fragments/header.html). No computador fica fixo à esquerda e pode ser recolhido
+ * para só os ícones (classe menu-recolhido no <html>); no celular e no tablet abre por cima da
+ * página pelo botão da barra superior.
+ */
+.app-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1035;
+    display: flex;
+    flex-direction: column;
+    width: var(--app-menu-largura);
+    background-color: #fff;
+    border-right: 1px solid var(--app-borda);
+    transition: width 0.2s ease;
 }
 
-/* O administrador vê todas as áreas: se não couberem numa linha, o menu quebra em duas */
-.app-navbar .navbar-nav {
-    flex-wrap: wrap;
+.app-sidebar-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 4.5rem;
+    padding: 1rem 1rem 0.75rem 1.5rem;
 }
 
-/* Nome e perfil do usuário logado, com o botão de sair */
-.app-usuario {
+/* Marca: quadrado verde com a gota e o nome do sistema */
+.app-marca {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    flex-shrink: 0;
+    min-width: 0;
+    color: var(--app-texto);
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
 }
 
-.app-usuario .navbar-text {
+.app-marca:hover {
+    color: var(--app-primaria-escura);
+}
+
+.app-marca-logo {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    background-color: var(--app-primaria);
     color: #fff;
+    font-size: 1rem;
+}
+
+.app-marca-nome {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Botões quadrados de ícone: recolher, abrir, fechar e sair */
+.app-sidebar-botao {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid var(--app-borda);
+    border-radius: 0.5rem;
+    background-color: #fff;
+    color: var(--app-texto-suave);
+    font-size: 1rem;
+    line-height: 1;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar-botao:hover {
+    background-color: var(--app-realce);
+    color: var(--app-texto);
+}
+
+.app-sidebar-botao:focus-visible {
+    outline: 2px solid var(--app-primaria);
+    outline-offset: 2px;
+}
+
+.app-sidebar-corpo {
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 0.75rem 1rem;
+    scrollbar-width: thin;
+}
+
+/* Nome do grupo, em letras pequenas */
+.app-menu-secao {
+    margin: 1.25rem 0 0.375rem;
+    padding: 0 0.75rem;
+    overflow: hidden;
+    color: var(--app-texto-suave);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.app-menu-grupo:first-child .app-menu-secao {
+    margin-top: 0.5rem;
+}
+
+.app-menu,
+.app-submenu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.app-menu li + li,
+.app-submenu li {
+    margin-top: 2px;
+}
+
+/* Subitens (Agenda, Propostas) recuados até o texto do item de cima */
+.app-submenu {
+    padding-left: 1.5rem;
+}
+
+/* O texto fica direto antes do </a> e é cortado pela largura do item quando o menu recolhe */
+.app-menu-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    color: var(--app-texto);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease, padding 0.2s ease, gap 0.2s ease;
+}
+
+.app-submenu .app-menu-link {
+    padding-top: 0.4375rem;
+    padding-bottom: 0.4375rem;
+    font-size: 0.875rem;
+}
+
+.app-menu-link > .bi {
+    flex-shrink: 0;
+    width: 1.25rem;
+    color: var(--app-texto-suave);
+    font-size: 1.125rem;
+    line-height: 1;
+    text-align: center;
+    transition: color 0.15s ease;
+}
+
+.app-menu-link:hover {
+    background-color: var(--app-realce);
+    color: var(--app-texto);
+}
+
+.app-menu-link:hover > .bi {
+    color: var(--app-texto);
+}
+
+.app-menu-link:focus-visible {
+    outline: 2px solid var(--app-primaria);
+    outline-offset: -2px;
+}
+
+.app-menu-link.active {
+    background-color: var(--app-primaria-suave);
+    color: var(--app-primaria-escura);
+    font-weight: 600;
+}
+
+.app-menu-link.active > .bi {
+    color: var(--app-primaria);
+}
+
+/* Número de propostas perto de vencer, no canto direito do item */
+.app-menu-aviso {
+    margin-left: auto;
+}
+
+/* Usuário logado, no pé do menu */
+.app-sidebar-rodape {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem 0.875rem 1.25rem;
+    border-top: 1px solid var(--app-borda);
+}
+
+.app-sidebar-rodape form {
+    flex-shrink: 0;
+    margin: 0 0 0 auto;
+}
+
+.app-avatar {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background-color: var(--app-primaria-suave);
+    color: var(--app-primaria-escura);
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+.app-usuario-dados {
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.app-usuario-nome,
+.app-usuario-perfil {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.app-usuario-nome {
+    color: var(--app-texto);
+    font-size: 0.875rem;
+    font-weight: 600;
 }
 
 .app-usuario-perfil {
-    background-color: var(--app-primaria-escura);
-    font-weight: 500;
+    color: var(--app-texto-suave);
+    font-size: 0.75rem;
+}
+
+/* Barra superior e fundo escurecido: só no celular e no tablet */
+.app-topbar {
+    display: none;
+}
+
+.app-sidebar-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1034;
+    background-color: rgba(15, 23, 20, 0.45);
+}
+
+/* Computador: o conteúdo começa depois do menu */
+@media (min-width: 992px) {
+    body:has(.app-sidebar) {
+        padding-left: var(--app-menu-largura);
+        transition: padding-left 0.2s ease;
+    }
+
+    /* Respiro entre o menu e os cartões da página */
+    body:has(.app-sidebar) > main.container {
+        padding-right: 2rem;
+        padding-left: 2rem;
+    }
+
+    [data-menu-fechar],
+    .app-sidebar-fundo {
+        display: none !important;
+    }
+
+    /* Menu recolhido: só os ícones, com o nome numa dica ao passar o mouse (app.js) */
+    .menu-recolhido body:has(.app-sidebar) {
+        padding-left: var(--app-menu-recolhido);
+    }
+
+    .menu-recolhido .app-sidebar {
+        width: var(--app-menu-recolhido);
+    }
+
+    .menu-recolhido .app-sidebar-topo {
+        justify-content: center;
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .menu-recolhido .app-sidebar-topo .app-marca {
+        display: none;
+    }
+
+    /* O nome do grupo vira uma linha fina separando os ícones */
+    .menu-recolhido .app-menu-secao {
+        height: 1px;
+        margin: 0.75rem 0.5rem;
+        padding: 0;
+        background-color: var(--app-borda);
+        font-size: 0;
+    }
+
+    .menu-recolhido .app-menu-grupo:first-child .app-menu-secao {
+        display: none;
+    }
+
+    .menu-recolhido .app-submenu {
+        padding-left: 0;
+    }
+
+    /* Ícone no centro; o espaço maior empurra o texto para fora da parte visível */
+    .menu-recolhido .app-menu-link {
+        gap: 1.5rem;
+        padding-left: calc((100% - 1.25rem) / 2);
+    }
+
+    .menu-recolhido .app-menu-aviso {
+        position: absolute;
+        top: 0.3rem;
+        left: 2rem;
+        width: 0.5rem;
+        min-width: 0;
+        height: 0.5rem;
+        margin: 0;
+        padding: 0;
+        font-size: 0;
+    }
+
+    .menu-recolhido .app-sidebar-rodape {
+        flex-direction: column;
+        gap: 0.625rem;
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .menu-recolhido .app-sidebar-rodape form {
+        margin: 0;
+    }
+
+    /* Some da tela, mas o leitor de tela continua lendo o nome e o perfil */
+    .menu-recolhido .app-usuario-dados {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+}
+
+/* Celular e tablet: barra superior com o botão de abrir; o menu desliza por cima da página */
+@media (max-width: 991.98px) {
+    .app-cabecalho:has(.app-topbar) {
+        position: sticky;
+        top: 0;
+        z-index: 1030;
+    }
+
+    .app-topbar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.625rem 1rem;
+        border-bottom: 1px solid var(--app-borda);
+        background-color: #fff;
+    }
+
+    .app-topbar .app-sidebar-botao {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1.25rem;
+    }
+
+    .app-sidebar {
+        max-width: 85vw;
+        visibility: hidden;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease, visibility 0s linear 0.25s;
+    }
+
+    .app-sidebar.aberto {
+        visibility: visible;
+        transform: none;
+        box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.18);
+        transition: transform 0.25s ease;
+    }
+
+    [data-menu-recolher] {
+        display: none;
+    }
+
+    [data-menu-fechar] {
+        width: 2.25rem;
+        height: 2.25rem;
+    }
+
+    /* Área de toque maior */
+    .app-menu-link,
+    .app-submenu .app-menu-link {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+
+    body.menu-aberto {
+        overflow: hidden;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-sidebar,
+    .app-sidebar.aberto,
+    .app-menu-link,
+    body:has(.app-sidebar) {
+        transition: none;
+    }
 }
 
 /* Botões e links de destaque na cor do sistema */
@@ -129,6 +529,9 @@ main {
 /* Proposta impressa ou salva em PDF: só o conteúdo, sem menu, rodapé nem botões */
 @media print {
     .app-navbar,
+    .app-topbar,
+    .app-sidebar,
+    .app-sidebar-fundo,
     .app-footer,
     .nao-imprimir,
     .alert {
@@ -136,6 +539,7 @@ main {
     }
 
     body {
+        padding-left: 0 !important;
         background-color: #fff;
     }
 
@@ -332,24 +736,9 @@ main {
     font-size: 0.875rem;
 }
 
-/* Celular: título menor e itens de menu com área de toque maior */
+/* Celular: título menor */
 @media (max-width: 575.98px) {
     .page-title {
         font-size: 1.5rem;
-    }
-
-    .app-navbar .nav-link {
-        padding-top: 0.75rem;
-        padding-bottom: 0.75rem;
-    }
-}
-
-/* Menu recolhido (abaixo de 992px): os dados do usuário vão para o fim da lista, separados por uma linha */
-@media (max-width: 991.98px) {
-    .app-usuario {
-        justify-content: space-between;
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
-        margin-top: 0.5rem;
-        padding: 0.75rem 0 0.25rem;
     }
 }
