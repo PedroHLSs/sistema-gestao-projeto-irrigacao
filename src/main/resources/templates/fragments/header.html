@@ -57,7 +57,7 @@
                         <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
                             <a class="nav-link" th:href="@{/diretoria/aprovacoes}"><i class="fas fa-chart-line me-2"></i>Diretoria</a>
                         </li>
-                        <li class="nav-item" sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
+                        <li class="nav-item" sec:authorize="hasAnyAuthority('FINANCEIRO', 'DIRETORIA', 'ADMINISTRADOR')">
                             <a class="nav-link" th:href="@{/diretoria/orcado-realizado}"><i class="fas fa-scale-balanced me-2"></i>Orçado x realizado</a>
                         </li>
                         <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">

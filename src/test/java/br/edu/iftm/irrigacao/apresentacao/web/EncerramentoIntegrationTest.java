@@ -529,7 +529,27 @@ class EncerramentoIntegrationTest {
         mockMvc.perform(get("/diretoria/orcado-realizado/exportar").param("de", "2026-11-17").param("ate", "2026-11-16")
                 .with(logado("diana")))
                 .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/diretoria/orcado-realizado").with(logado("ana")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("O financeiro também consulta e exporta o orçado x realizado; o vendedor não")
+    void testFinanceiroNoOrcadoRealizado() throws Exception {
+        encerrar();
+
+        mockMvc.perform(get("/").with(logado("fabio")))
+                .andExpect(content().string(containsString("Orçado x realizado</a>")));
         mockMvc.perform(get("/diretoria/orcado-realizado").with(logado("fabio")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("R$ 1.329,60")))
+                .andExpect(content().string(containsString("46,56%")));
+        mockMvc.perform(get("/diretoria/orcado-realizado/exportar").with(logado("fabio")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", containsString("text/csv")));
+        mockMvc.perform(get("/diretoria/aprovacoes").with(logado("fabio")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/diretoria/orcado-realizado/exportar").with(logado("ana")))
                 .andExpect(status().isForbidden());
     }
 

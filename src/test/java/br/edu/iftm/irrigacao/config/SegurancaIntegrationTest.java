@@ -215,10 +215,10 @@ class SegurancaIntegrationTest {
             Perfil.COMPRADOR, Set.of("Estoque"),
             Perfil.ALMOXARIFE, Set.of("Estoque"),
             Perfil.TECNICO_CAMPO, Set.of("Campo"),
-            Perfil.FINANCEIRO, Set.of("Financeiro"),
-            Perfil.DIRETORIA, Set.of("Comercial", "Financeiro", "Diretoria"),
-            Perfil.ADMINISTRADOR,
-            Set.of("Comercial", "Engenharia", "Estoque", "Campo", "Financeiro", "Diretoria", "Usuários"));
+            Perfil.FINANCEIRO, Set.of("Financeiro", "Orçado x realizado"),
+            Perfil.DIRETORIA, Set.of("Comercial", "Financeiro", "Diretoria", "Orçado x realizado"),
+            Perfil.ADMINISTRADOR, Set.of("Comercial", "Engenharia", "Estoque", "Campo", "Financeiro", "Diretoria",
+                    "Orçado x realizado", "Usuários"));
 
     @ParameterizedTest(name = "menu do perfil {0}")
     @MethodSource("perfis")
@@ -288,6 +288,7 @@ class SegurancaIntegrationTest {
             "/campo", Set.of(Perfil.TECNICO_CAMPO, Perfil.PROJETISTA),
             "/financeiro", Set.of(Perfil.FINANCEIRO, Perfil.DIRETORIA),
             "/diretoria", Set.of(Perfil.DIRETORIA),
+            "/diretoria/orcado-realizado", Set.of(Perfil.DIRETORIA, Perfil.FINANCEIRO),
             "/admin", Set.of());
 
     static Stream<Arguments> prefixosEPerfis() {
@@ -302,7 +303,7 @@ class SegurancaIntegrationTest {
     }
 
     /**
-     * A tabela inteira: 8 prefixos por 8 perfis, no próprio prefixo e numa página que não existe.
+     * A tabela inteira: 9 prefixos por 8 perfis, no próprio prefixo e numa página que não existe.
      * Quem passa pela segurança recebe a página (200) ou 404, se ela não existe; quem é barrado
      * recebe 403.
      */

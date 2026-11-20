@@ -44,6 +44,7 @@ import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
  * /financeiro/**  FINANCEIRO, DIRETORIA
  *                 (a liberação de um projeto, /financeiro/liberacoes/{id}, só para FINANCEIRO)
  * /diretoria/**   DIRETORIA
+ *                 (o orçado x realizado, /diretoria/orcado-realizado/**, também para FINANCEIRO)
  * /admin/**       ADMINISTRADOR
  * </pre>
  *
@@ -92,6 +93,9 @@ public class SecurityConfig {
                 // Liberação do faturamento (RF20): a diretoria acompanha a fila, quem libera é o financeiro
                 .requestMatchers("/financeiro/liberacoes/*").hasAnyAuthority(comAdministrador(FINANCEIRO))
                 .requestMatchers("/financeiro/**").hasAnyAuthority(comAdministrador(FINANCEIRO, DIRETORIA))
+                // Orçado x realizado (RF22): a diretoria e o financeiro comparam os custos dos projetos encerrados
+                .requestMatchers("/diretoria/orcado-realizado", "/diretoria/orcado-realizado/**")
+                    .hasAnyAuthority(comAdministrador(DIRETORIA, FINANCEIRO))
                 .requestMatchers("/diretoria/**").hasAnyAuthority(comAdministrador(DIRETORIA))
                 .requestMatchers("/admin/**").hasAnyAuthority(comAdministrador())
 

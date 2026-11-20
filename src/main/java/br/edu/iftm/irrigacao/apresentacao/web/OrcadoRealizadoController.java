@@ -25,7 +25,7 @@ import jakarta.validation.Valid;
 
 /**
  * Orçado x realizado dos projetos encerrados (RF22), com filtro por período e exportação em CSV. Fica
- * sob {@code /diretoria} (DIRETORIA e ADMINISTRADOR).
+ * sob {@code /diretoria}, liberado para DIRETORIA, FINANCEIRO e ADMINISTRADOR pelo {@code SecurityConfig}.
  */
 @Controller
 @RequestMapping("/diretoria/orcado-realizado")
