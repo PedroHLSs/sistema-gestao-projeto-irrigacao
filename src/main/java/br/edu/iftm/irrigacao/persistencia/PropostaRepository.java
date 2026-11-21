@@ -22,6 +22,10 @@ public interface PropostaRepository extends JpaRepository<Proposta, Long> {
     /** A proposta vigente do projeto, que é a de maior número. */
     Optional<Proposta> findFirstByProjetoIdOrderByNumeroDesc(Long projetoId);
 
+    /** Todas as versões das propostas de vários projetos numa consulta, da mais nova para a mais antiga. */
+    @Query("select p from Proposta p where p.projeto.id in :projetoIds order by p.numero desc")
+    List<Proposta> listarDosProjetos(@Param("projetoIds") Collection<Long> projetoIds);
+
     /** Usado na verificação de vencimento das propostas enviadas (RF11). */
     List<Proposta> findBySituacao(SituacaoProposta situacao);
 

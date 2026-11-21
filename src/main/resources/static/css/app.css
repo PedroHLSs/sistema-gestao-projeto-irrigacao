@@ -497,7 +497,31 @@ main {
     margin-bottom: 1rem;
 }
 
-/* Situação do projeto (fragments/situacao.html). Texto branco sobre fundos escuros o bastante para contraste AA. */
+/* Trilha de navegação acima do título (fragments/trilha.html) */
+.trilha .breadcrumb {
+    --bs-breadcrumb-divider: "›";
+    --bs-breadcrumb-item-active-color: var(--app-texto-suave);
+    --bs-breadcrumb-divider-color: var(--app-texto-suave);
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.trilha a {
+    color: var(--app-primaria);
+    text-decoration: none;
+}
+
+.trilha a:hover,
+.trilha a:focus-visible {
+    text-decoration: underline;
+}
+
+/*
+ * Situação do projeto (fragments/situacao.html). A cor diz a fase, na ordem das abas do projeto:
+ * levantamento, proposta, material e execução. Laranja e vermelho ficam só para o que pede atenção
+ * (instalação a corrigir e pendência aberta), e cinza para os projetos que terminaram. O texto da
+ * etiqueta diz a situação. Texto branco sobre fundos escuros o bastante para contraste AA.
+ */
 .badge-situacao {
     color: #fff;
     font-weight: 600;
@@ -505,16 +529,21 @@ main {
 }
 
 .situacao-EM_LEVANTAMENTO { background-color: #0a6e8a; }
-.situacao-ORCANDO { background-color: #4c3fa8; }
-.situacao-AGUARDANDO_RESPOSTA { background-color: #9a5b00; }
-.situacao-PREPARANDO_MATERIAL { background-color: #7a3e9d; }
-.situacao-PROGRAMANDO_EXECUCAO { background-color: #1f5fbf; }
-.situacao-EXECUTANDO_INSTALACAO { background-color: #134a8e; }
-.situacao-VALIDANDO_MEDICAO { background-color: #0f766e; }
+
+.situacao-ORCANDO,
+.situacao-AGUARDANDO_RESPOSTA { background-color: #5b45a8; }
+
+.situacao-PREPARANDO_MATERIAL { background-color: #7a5410; }
+
+.situacao-PROGRAMANDO_EXECUCAO,
+.situacao-EXECUTANDO_INSTALACAO,
+.situacao-VALIDANDO_MEDICAO,
+.situacao-COLHENDO_ACEITE,
+.situacao-FINALIZANDO_EXECUCAO { background-color: #1f5fbf; }
+
 .situacao-CORRIGINDO_INSTALACAO { background-color: #b4400c; }
-.situacao-COLHENDO_ACEITE { background-color: #3f7d20; }
 .situacao-TRATANDO_PENDENCIA { background-color: #b02a37; }
-.situacao-FINALIZANDO_EXECUCAO { background-color: var(--app-primaria); }
+
 .situacao-ENCERRADO { background-color: #343a40; }
 .situacao-CANCELADO { background-color: #6c757d; text-decoration: line-through; }
 
@@ -523,6 +552,7 @@ main {
 .proposta-AGUARDANDO_DIRETORIA { background-color: #9a5b00; }
 .proposta-ENVIADA { background-color: #1f5fbf; }
 .proposta-VENCIDA { background-color: #6c757d; }
+.proposta-RENEGOCIADA { background-color: #55606a; }
 .proposta-APROVADA { background-color: var(--app-primaria); }
 .proposta-RECUSADA { background-color: #b02a37; }
 
@@ -578,10 +608,73 @@ main {
 
 /* Abas do projeto: no celular rolam de lado em vez de quebrar em duas linhas */
 .abas-projeto {
+    --bs-nav-link-color: var(--app-primaria-escura);
+    --bs-nav-link-hover-color: var(--app-primaria);
+    --bs-nav-link-padding-x: 0.625rem;
+    --bs-nav-link-font-size: 0.9375rem;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
+    scrollbar-width: thin;
+}
+
+/* Estado da fase em cada aba: o visto na concluída, o ponto na atual, o texto mais claro na pendente */
+.abas-projeto .aba-marca {
+    margin-right: 0.3rem;
+}
+
+.abas-projeto .aba-concluida {
+    color: var(--app-primaria);
+    font-size: 0.8em;
+}
+
+.abas-projeto .aba-atual {
+    display: inline-block;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    vertical-align: 0.1em;
+    background-color: var(--app-primaria);
+    box-shadow: 0 0 0 3px var(--app-primaria-suave);
+}
+
+.abas-projeto .nav-link:not(.active) .aba-pendente {
+    color: var(--app-texto-suave);
+}
+
+/*
+ * Próximo passo do projeto (projetos/detalheProjeto.html). Quando o passo é do usuário, fica na cor
+ * do sistema e com o botão; quando é de outro perfil, fica neutro e diz quem está fazendo.
+ */
+.proximo-passo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding: 0.875rem 1.25rem;
+    background-color: #fff;
+    border: 1px solid var(--app-borda);
+    border-left: 4px solid #adb5bd;
+    border-radius: 0.5rem;
+    color: var(--app-texto-suave);
+}
+
+.proximo-passo h2 {
+    color: var(--app-texto);
+    font-weight: 600;
+}
+
+.proximo-passo-rotulo {
+    font-weight: 400;
+    color: var(--app-texto-suave);
+}
+
+.proximo-passo-comigo {
+    background-color: var(--app-primaria-suave);
+    border-color: #c3e3d2;
+    border-left-color: var(--app-primaria);
 }
 
 /* Linha do tempo do histórico do projeto */
@@ -607,6 +700,12 @@ main {
     border-radius: 50%;
     background-color: var(--app-primaria);
     border: 2px solid #fff;
+}
+
+/* Andamento da separação de cada projeto da fila do estoque */
+.fila-andamento {
+    height: 0.375rem;
+    max-width: 14rem;
 }
 
 /* Tela de campo (RNF06): uma coluna, da largura do celular também no computador */
@@ -679,19 +778,532 @@ main {
     width: 7rem;
 }
 
-/* Agenda de visitas */
-.agenda-hoje {
-    border-color: var(--app-primaria);
+/* No input-group (separação), o campo fica do mesmo tamanho em vez de esticar pela célula */
+.input-group > .campo-quantidade {
+    flex: 0 0 7rem;
+    width: 7rem;
 }
 
-.agenda-hoje .card-header {
-    background-color: #e3f1eb;
+/*
+ * Agenda de visitas (projetos/agenda.html): o mês ao lado e a grade da semana, com cada visita na
+ * altura do horário. --inicio (minutos desde 0h) vem do servidor; --coluna e --colunas, que põem
+ * lado a lado as visitas que se cruzam, vêm do app.js.
+ */
+.agenda-pagina {
+    max-width: 110rem;
+    padding-right: clamp(0.75rem, 2.5vw, 2rem);
+    padding-left: clamp(0.75rem, 2.5vw, 2rem);
 }
 
-.agenda-hora {
-    font-weight: 700;
+/* A largura disponível (que muda quando o menu lateral recolhe) decide onde o mês fica */
+.agenda-moldura {
+    container-type: inline-size;
+}
+
+.agenda {
+    --agenda-hora: 3.5rem;
+    --agenda-coluna-horas: 3.5rem;
+    --agenda-linha: #e8edea;
+    --agenda-agora: #d1382c;
+    --agenda-realizada: #87938c;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    background-color: #fff;
+    border: 1px solid var(--app-borda);
+    border-radius: 0.75rem;
+}
+
+/* Telas estreitas: o mês vai para baixo da grade */
+.agenda-lateral {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 18rem));
+    gap: 1.5rem 3rem;
+    order: 1;
+    padding: 1.25rem 1rem;
+    border-top: 1px solid var(--app-borda);
+}
+
+.agenda-principal {
+    min-width: 0;
+}
+
+/* O mês só fica ao lado quando ainda sobra espaço para os sete dias sem rolar de lado */
+@container (min-width: 64rem) {
+    .agenda {
+        grid-template-columns: 15rem minmax(0, 1fr);
+    }
+
+    .agenda-lateral {
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+        order: 0;
+        border-top: 0;
+        border-right: 1px solid var(--app-borda);
+    }
+}
+
+/* Botões da agenda: Hoje e as setas */
+.agenda-botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--app-borda);
+    border-radius: 0.5rem;
+    background-color: #fff;
+    color: var(--app-texto);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+}
+
+.agenda-botao:hover {
+    background-color: var(--app-realce);
+    color: var(--app-texto);
+}
+
+.agenda-botao:focus-visible {
+    outline: 2px solid var(--app-primaria);
+    outline-offset: 1px;
+}
+
+.agenda-botao-icone {
+    width: 2rem;
+    padding: 0;
+    border-color: transparent;
+    color: var(--app-texto-suave);
+}
+
+.agenda-setas {
+    display: flex;
+    gap: 0.125rem;
+}
+
+/* Calendário do mês */
+.mini-cal-cabeca {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.mini-cal-titulo {
+    margin: 0 0 0 0.25rem;
+    color: var(--app-texto);
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.mini-cal table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 2px;
+    table-layout: fixed;
+}
+
+.mini-cal th {
+    padding-bottom: 0.25rem;
+    color: var(--app-texto-suave);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+.mini-cal td {
+    padding: 0;
+    text-align: center;
+}
+
+.mini-cal td a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 50%;
+    color: var(--app-texto);
+    font-size: 0.8125rem;
     font-variant-numeric: tabular-nums;
-    min-width: 3.25rem;
+    text-decoration: none;
+}
+
+.mini-cal td a:hover {
+    background-color: var(--app-realce);
+}
+
+.mini-cal td a:focus-visible {
+    outline: 2px solid var(--app-primaria);
+    outline-offset: 0;
+}
+
+.mini-cal td.fora a {
+    color: #8b958f;
+}
+
+/* A semana aberta na agenda vira uma faixa */
+.mini-cal tr.aberta td {
+    background-color: var(--app-primaria-suave);
+}
+
+.mini-cal tr.aberta td:first-child {
+    border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.mini-cal tr.aberta td:last-child {
+    border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.mini-cal tr.aberta td a:hover {
+    background-color: #c9e6d6;
+}
+
+.mini-cal td.hoje a,
+.mini-cal td.hoje a:hover {
+    background-color: var(--app-primaria);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* Resumo da semana, que também é a legenda das cores */
+.agenda-lateral-titulo {
+    margin: 0 0 0.5rem 0.25rem;
+    color: var(--app-texto);
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.agenda-legenda {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.875rem;
+}
+
+.agenda-legenda li {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.3125rem 0.25rem;
+}
+
+.agenda-legenda-total {
+    margin-left: auto;
+    color: var(--app-texto-suave);
+    font-variant-numeric: tabular-nums;
+}
+
+.agenda-cor {
+    flex-shrink: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 0.1875rem;
+}
+
+.agenda-cor.a-realizar {
+    background-color: var(--app-primaria);
+}
+
+.agenda-cor.realizada {
+    background-color: var(--agenda-realizada);
+}
+
+/* Barra do alto: Hoje, setas, mês e o total da semana */
+.agenda-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--app-borda);
+}
+
+.agenda-titulo {
+    margin: 0 0 0 0.25rem;
+    color: var(--app-texto);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.agenda-periodo {
+    margin: 0 0 0 auto;
+    color: var(--app-texto-suave);
+    font-size: 0.875rem;
+}
+
+.agenda-aviso {
+    margin: 0;
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--app-borda);
+    background-color: #fbfcfb;
+    color: var(--app-texto-suave);
+    font-size: 0.875rem;
+}
+
+.agenda-aviso a {
+    color: var(--app-primaria-escura);
+    font-weight: 500;
+}
+
+/* Grade: rola nas duas direções, com os dias e as horas presos nas bordas */
+.agenda-rolagem {
+    position: relative;
+    height: clamp(26rem, calc(100svh - 15rem), 62rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.agenda-rolagem:focus-visible {
+    outline: 2px solid var(--app-primaria);
+    outline-offset: -2px;
+}
+
+.agenda-grade {
+    display: grid;
+    grid-template-columns: var(--agenda-coluna-horas) repeat(7, minmax(6.5rem, 1fr));
+    grid-template-rows: auto calc(24 * var(--agenda-hora));
+}
+
+.agenda-canto,
+.agenda-cabeca {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background-color: #fff;
+    border-bottom: 1px solid var(--app-borda);
+}
+
+.agenda-canto {
+    left: 0;
+    z-index: 4;
+}
+
+.agenda-cabeca {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.625rem 0.25rem;
+    color: var(--app-texto-suave);
+    font-size: 0.875rem;
+}
+
+.agenda-cabeca-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.25rem;
+    border-radius: 0.4375rem;
+    color: var(--app-texto);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.agenda-cabeca.hoje .agenda-cabeca-semana {
+    color: var(--app-primaria-escura);
+    font-weight: 600;
+}
+
+.agenda-cabeca.hoje .agenda-cabeca-numero {
+    background-color: var(--app-primaria);
+    color: #fff;
+}
+
+/* Coluna das horas: cada rótulo fica na altura da linha da sua hora */
+.agenda-horas {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background-color: #fff;
+}
+
+.agenda-hora-rotulo {
+    position: absolute;
+    top: calc(var(--h) * var(--agenda-hora));
+    right: 0.5rem;
+    transform: translateY(-50%);
+    color: var(--app-texto-suave);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* Coluna do dia: uma linha por hora */
+.agenda-dia {
+    position: relative;
+    border-left: 1px solid var(--agenda-linha);
+    background-image: repeating-linear-gradient(to bottom, var(--agenda-linha) 0 1px, transparent 1px var(--agenda-hora));
+}
+
+.agenda-dia.fim-de-semana {
+    background-color: #f9fbfa;
+}
+
+.agenda-visitas {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/*
+ * Visita: começa no horário marcado e ocupa uma hora, ou até a meia-noite. As que se cruzam dividem
+ * a largura; se a fatia ficar estreita demais para ler, cada uma mantém a largura mínima e elas se
+ * sobrepõem em cascata, a mais tarde por cima. Passar o mouse ou o foco traz a visita para a frente.
+ */
+.agenda-evento {
+    --duracao: min(60, 1440 - var(--inicio));
+    --area: calc(100% - 6px);
+    --largura: min(var(--area), max(var(--area) / var(--colunas, 1), 4.75rem));
+    position: absolute;
+    top: calc(var(--inicio) * var(--agenda-hora) / 60 + 1px);
+    left: calc(3px + var(--coluna, 0) * (var(--area) - var(--largura)) / max(var(--colunas, 1) - 1, 1));
+    width: var(--largura);
+    height: calc(var(--duracao) * var(--agenda-hora) / 60 - 2px);
+}
+
+.agenda-evento:hover,
+.agenda-evento:focus-within {
+    z-index: 2;
+}
+
+.agenda-evento a {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 0.25rem 0.375rem 0.25rem 0.5rem;
+    border-left: 3px solid var(--app-primaria);
+    border-radius: 0.375rem;
+    background-color: #e3f1e9;
+    /* Contorno branco: separa as visitas quando uma fica por cima da outra */
+    box-shadow: 0 0 0 1px #fff;
+    color: var(--app-primaria-escura);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+}
+
+.agenda-evento a:hover {
+    background-color: #d0e8da;
+}
+
+.agenda-evento a:focus-visible {
+    outline: 2px solid var(--app-primaria-escura);
+    outline-offset: 1px;
+}
+
+.agenda-evento-titulo,
+.agenda-evento-linha,
+.agenda-evento-local {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.agenda-evento-titulo {
+    font-weight: 600;
+}
+
+.agenda-evento-titulo .bi {
+    margin-right: 0.25rem;
+}
+
+.agenda-evento-linha {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.agenda-evento-hora {
+    flex-shrink: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.agenda-evento-codigo {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agenda-evento-local {
+    opacity: 0.85;
+}
+
+.agenda-evento.realizada a {
+    border-left-color: var(--agenda-realizada);
+    background-color: #eef1ef;
+    color: #46514b;
+}
+
+.agenda-evento.realizada a:hover {
+    background-color: #e2e7e4;
+}
+
+/* Hora atual, só na coluna de hoje (app.js) */
+.agenda-agora {
+    position: absolute;
+    top: calc(var(--minuto, 0) * var(--agenda-hora) / 60);
+    right: 0;
+    left: 0;
+    z-index: 2;
+    height: 2px;
+    margin-top: -1px;
+    background-color: var(--agenda-agora);
+    pointer-events: none;
+}
+
+.agenda-agora::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--agenda-agora);
+}
+
+/* Celular: colunas mais largas, a grade rola de lado e para no começo de cada dia */
+@container (max-width: 47.99rem) {
+    .agenda {
+        --agenda-coluna-horas: 2.75rem;
+    }
+
+    .agenda-grade {
+        grid-template-columns: var(--agenda-coluna-horas) repeat(7, minmax(7.5rem, 1fr));
+    }
+
+    .agenda-rolagem {
+        scroll-snap-type: x proximity;
+        scroll-padding-left: var(--agenda-coluna-horas);
+    }
+
+    .agenda-cabeca {
+        scroll-snap-align: start;
+    }
+
+    .agenda-hora-rotulo {
+        right: 0.375rem;
+    }
+
+    .agenda-periodo {
+        flex-basis: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agenda-botao,
+    .agenda-evento a {
+        transition: none;
+    }
 }
 
 /* Painel inicial */

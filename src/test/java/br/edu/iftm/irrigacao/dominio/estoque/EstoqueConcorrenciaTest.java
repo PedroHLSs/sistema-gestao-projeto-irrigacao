@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,6 +31,8 @@ import br.edu.iftm.irrigacao.dominio.acesso.Usuario;
 import br.edu.iftm.irrigacao.dominio.comercial.Produtor;
 import br.edu.iftm.irrigacao.dominio.comercial.Propriedade;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
+import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
+import br.edu.iftm.irrigacao.persistencia.ItemProjetoRepository;
 import br.edu.iftm.irrigacao.persistencia.MaterialRepository;
 import br.edu.iftm.irrigacao.persistencia.MovimentacaoEstoqueRepository;
 import br.edu.iftm.irrigacao.persistencia.ProdutorRepository;
@@ -38,8 +41,8 @@ import br.edu.iftm.irrigacao.persistencia.PropriedadeRepository;
 import br.edu.iftm.irrigacao.persistencia.UsuarioRepository;
 
 /**
- * Atomicidade do estoque com commit de verdade (RNF05): várias threads ao mesmo tempo e o UPDATE
- * desfeito quando a operação é recusada depois dele.
+ * Atomicidade do estoque com commit de verdade (RNF05): várias threads ao mesmo tempo, o UPDATE
+ * desfeito quando a operação é recusada depois dele e a separação aos poucos sem perder soma (RF14).
  *
  * <p>Sem {@code @Transactional} na classe: cada chamada ao service abre e fecha a própria
  * transação, como numa requisição. Por isso os dados são criados antes de cada teste e apagados
@@ -55,6 +58,12 @@ class EstoqueConcorrenciaTest {
 
     @Autowired
     private EstoqueService estoqueService;
+
+    @Autowired
+    private SeparacaoService separacaoService;
+
+    @Autowired
+    private ItemProjetoRepository itemProjetoRepository;
 
     @Autowired
     private MaterialRepository materialRepository;
@@ -80,6 +89,7 @@ class EstoqueConcorrenciaTest {
     private Projeto projetoA;
     private Projeto projetoB;
     private Long materialId;
+    private Long itemId;
 
     @BeforeEach
     void criarDados() {
@@ -98,6 +108,9 @@ class EstoqueConcorrenciaTest {
     @AfterEach
     void apagarDados() {
         movimentacaoRepository.deleteAllInBatch();
+        if (itemId != null) {
+            itemProjetoRepository.deleteById(itemId);
+        }
         projetoRepository.deleteAllById(List.of(projetoA.getId(), projetoB.getId()));
         propriedadeRepository.deleteById(fazenda.getId());
         produtorRepository.deleteById(produtor.getId());
@@ -122,11 +135,16 @@ class EstoqueConcorrenciaTest {
         return movimentacaoRepository.findAll().stream().filter(m -> m.getTipo() == tipo).count();
     }
 
+    /** Cada uma das {@value #THREADS} threads reserva {@code quantidade}; devolve quantas conseguiram. */
+    private int reservarAoMesmoTempo(BigDecimal quantidade) throws Exception {
+        return aoMesmoTempo(() -> estoqueService.reservar(materialId, projetoA.getId(), quantidade));
+    }
+
     /**
-     * Solta as {@value #THREADS} threads juntas, cada uma reservando {@code quantidade}, e devolve
+     * Solta as {@value #THREADS} threads juntas, cada uma fazendo a {@code operacao}, e devolve
      * quantas conseguiram. Qualquer erro que não seja saldo insuficiente faz o teste falhar.
      */
-    private int reservarAoMesmoTempo(BigDecimal quantidade) throws Exception {
+    private int aoMesmoTempo(Runnable operacao) throws Exception {
         ExecutorService threads = Executors.newFixedThreadPool(THREADS);
         CountDownLatch prontas = new CountDownLatch(THREADS);
         CountDownLatch largada = new CountDownLatch(1);
@@ -137,7 +155,7 @@ class EstoqueConcorrenciaTest {
                     prontas.countDown();
                     largada.await();
                     try {
-                        estoqueService.reservar(materialId, projetoA.getId(), quantidade);
+                        operacao.run();
                         return true;
                     } catch (SaldoInsuficienteException e) {
                         return false;
@@ -184,6 +202,27 @@ class EstoqueConcorrenciaTest {
         assertThat(conseguiram).isEqualTo(7);
         assertThat(material.getSaldoReservado()).isEqualByComparingTo("7");
         assertThat(movimentacoesDoTipo(TipoMovimentacao.RESERVA)).isEqualTo(7);
+    }
+
+    @Test
+    @DisplayName("10 threads separando 2 do mesmo item de 20 ao mesmo tempo: a trava do item não deixa nenhuma soma se perder")
+    void testDezThreadsSeparandoOMesmoItem() throws Exception {
+        estoqueService.entradaCompra(materialId, new BigDecimal("20"));
+        estoqueService.reservar(materialId, projetoA.getId(), new BigDecimal("20"));
+        projetoA.setSituacao(SituacaoProjeto.PREPARANDO_MATERIAL);
+        projetoA = projetoRepository.save(projetoA);
+        itemId = itemProjetoRepository.save(new ItemProjeto(null, projetoA, material(), new BigDecimal("20"),
+                BigDecimal.ZERO, BigDecimal.ZERO, null)).getId();
+
+        int conseguiram = aoMesmoTempo(
+                () -> separacaoService.separar(projetoA.getId(), Map.of(itemId, new BigDecimal("2"))));
+
+        assertThat(conseguiram).isEqualTo(THREADS);
+        assertThat(itemProjetoRepository.findById(itemId).orElseThrow().getQuantidadeSeparada())
+                .isEqualByComparingTo("20");
+        // Separar não mexe no estoque: só a conferência baixa
+        assertThat(material().getSaldoReservado()).isEqualByComparingTo("20");
+        assertThat(movimentacoesDoTipo(TipoMovimentacao.RESERVA)).isEqualTo(1);
     }
 
     @Test

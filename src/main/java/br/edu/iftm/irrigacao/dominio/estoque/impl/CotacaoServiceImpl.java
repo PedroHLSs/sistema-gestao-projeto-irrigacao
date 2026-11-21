@@ -62,8 +62,7 @@ public class CotacaoServiceImpl implements CotacaoService {
 
     @Override
     public boolean podeCotar(Projeto projeto) {
-        return projeto.getSituacao() == SituacaoProjeto.ORCANDO
-                || projeto.getSituacao() == SituacaoProjeto.PREPARANDO_MATERIAL;
+        return projeto.getSituacao() == SituacaoProjeto.ORCANDO || projeto.getSituacao().isMaterialEmAndamento();
     }
 
     @Override
@@ -72,9 +71,9 @@ public class CotacaoServiceImpl implements CotacaoService {
             Integer prazoDias, BigDecimal quantidade) {
         Projeto projeto = buscarProjeto(projetoId);
         if (!podeCotar(projeto)) {
-            throw new RegraNegocioException("As cotações são registradas com o projeto em \""
-                    + SituacaoProjeto.ORCANDO.getRotulo() + "\" ou \"" + SituacaoProjeto.PREPARANDO_MATERIAL.getRotulo()
-                    + "\". O projeto " + projeto.getCodigo() + " está em \"" + projeto.getSituacao().getRotulo() + "\".");
+            throw new RegraNegocioException("As cotações são registradas no orçamento e depois, da aprovação da "
+                    + "proposta até o aceite do cliente. O projeto " + projeto.getCodigo() + " está em \""
+                    + projeto.getSituacao().getRotulo() + "\".");
         }
         ItemProjeto item = itemProjetoRepository.findByProjetoIdAndMaterialId(projetoId, materialId)
                 .orElseThrow(() -> new RegraNegocioException("O material não está na lista técnica do projeto "
@@ -118,7 +117,7 @@ public class CotacaoServiceImpl implements CotacaoService {
     @Transactional
     public Cotacao requisitar(Long projetoId, Long cotacaoId) {
         Projeto projeto = buscarProjeto(projetoId);
-        exigirSituacao(projeto, SituacaoProjeto.PREPARANDO_MATERIAL, "A requisição de compra é feita");
+        exigirMaterialEmAndamento(projeto, "A requisição de compra é feita");
         Cotacao escolhida = buscarCotacao(cotacaoId);
         if (!escolhida.getProjeto().getId().equals(projetoId)) {
             throw new RegistroNaoEncontradoException("Cotação não encontrada.");
@@ -161,7 +160,7 @@ public class CotacaoServiceImpl implements CotacaoService {
         }
         Long projetoId = cotacao.getProjeto().getId();
         Long materialId = cotacao.getMaterial().getId();
-        exigirSituacao(buscarProjeto(projetoId), SituacaoProjeto.PREPARANDO_MATERIAL, "O recebimento é registrado");
+        exigirMaterialEmAndamento(buscarProjeto(projetoId), "O recebimento é registrado");
         BigDecimal recebida = cotacao.getQuantidade();
         // A situação muda antes: a entrada de estoque grava as alterações pendentes e limpa o contexto
         cotacao.setSituacao(SituacaoCotacao.RECEBIDA);
@@ -188,9 +187,10 @@ public class CotacaoServiceImpl implements CotacaoService {
                 .orElseThrow(() -> new RegistroNaoEncontradoException("Cotação não encontrada."));
     }
 
-    private static void exigirSituacao(Projeto projeto, SituacaoProjeto situacao, String acao) {
-        if (projeto.getSituacao() != situacao) {
-            throw new RegraNegocioException(acao + " com o projeto em \"" + situacao.getRotulo() + "\". O projeto "
+    /** Da aprovação da proposta até o aceite: em projeto grande, a compra continua durante a instalação. */
+    private static void exigirMaterialEmAndamento(Projeto projeto, String acao) {
+        if (!projeto.getSituacao().isMaterialEmAndamento()) {
+            throw new RegraNegocioException(acao + " da aprovação da proposta até o aceite do cliente. O projeto "
                     + projeto.getCodigo() + " está em \"" + projeto.getSituacao().getRotulo() + "\".");
         }
     }

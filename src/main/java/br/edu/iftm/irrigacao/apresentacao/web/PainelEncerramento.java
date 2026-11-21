@@ -26,6 +26,9 @@ public class PainelEncerramento {
     public void preencher(Model model, Projeto projeto) {
         boolean encerrado = projeto.getSituacao() == SituacaoProjeto.ENCERRADO;
         model.addAttribute("encerrado", encerrado);
+        // Antes de encerrar: o faturamento é liberado com a execução finalizada e as sobras tratadas (RF20)
+        model.addAttribute("finalizando", projeto.getSituacao() == SituacaoProjeto.FINALIZANDO_EXECUCAO);
+        model.addAttribute("podeLiberarFaturamento", liberacaoService.motivoDoBloqueio(projeto).isEmpty());
         model.addAttribute("garantia", liberacaoService.garantia(projeto).orElse(null));
         model.addAttribute("quadro", encerrado ? orcadoRealizadoService.doProjeto(projeto.getId()) : null);
     }

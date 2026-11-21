@@ -2,7 +2,9 @@ package br.edu.iftm.irrigacao.dominio.projeto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -18,6 +20,9 @@ public interface LevantamentoService {
     long TAMANHO_MAXIMO_FOTO = 5L * 1024 * 1024;
 
     Optional<Levantamento> buscarPorProjeto(Long projetoId);
+
+    /** O levantamento de cada projeto que já tem um, por id do projeto, numa consulta só. */
+    Map<Long, Levantamento> buscarPorProjetos(Collection<Long> projetoIds);
 
     /**
      * A visita pode ser agendada, ou reagendada, enquanto o projeto está em EM_LEVANTAMENTO e a

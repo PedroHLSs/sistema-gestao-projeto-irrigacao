@@ -146,9 +146,6 @@ public interface ProjetoRepository extends JpaRepository<Projeto, Long> {
     @Query("select count(p) from Projeto p where p.situacao = :situacao")
     long contarNaSituacao(@Param("situacao") SituacaoProjeto situacao);
 
-    @Query("select count(p) from Projeto p where p.situacao = :situacao and p.separacaoConferida = false")
-    long contarSemSeparacaoConferida(@Param("situacao") SituacaoProjeto situacao);
-
     @Query("select count(p) from Projeto p where p.situacao = :situacao and p.sobrasDevolvidas = :devolvidas")
     long contarPorSobras(@Param("situacao") SituacaoProjeto situacao, @Param("devolvidas") boolean devolvidas);
 }

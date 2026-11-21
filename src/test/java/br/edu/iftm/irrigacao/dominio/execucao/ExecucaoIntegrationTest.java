@@ -52,6 +52,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.edu.iftm.irrigacao.apresentacao.web.AbaProjeto;
+import br.edu.iftm.irrigacao.apresentacao.web.TrilhaDeNavegacao;
 import br.edu.iftm.irrigacao.config.RelogioDeTesteConfig;
 import br.edu.iftm.irrigacao.dominio.RegistroNaoEncontradoException;
 import br.edu.iftm.irrigacao.dominio.RegraNegocioException;
@@ -67,10 +69,13 @@ import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
 import br.edu.iftm.irrigacao.dominio.estoque.Material;
 import br.edu.iftm.irrigacao.dominio.estoque.MaterialService;
 import br.edu.iftm.irrigacao.dominio.estoque.MovimentacaoEstoque;
+import br.edu.iftm.irrigacao.dominio.estoque.SeparacaoService;
 import br.edu.iftm.irrigacao.dominio.estoque.SobraItem;
 import br.edu.iftm.irrigacao.dominio.estoque.SobrasService;
 import br.edu.iftm.irrigacao.dominio.estoque.TipoMovimentacao;
+import br.edu.iftm.irrigacao.dominio.projeto.EventoProjeto;
 import br.edu.iftm.irrigacao.dominio.projeto.HistoricoProjeto;
+import br.edu.iftm.irrigacao.dominio.projeto.LinhaDoTempoService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 import br.edu.iftm.irrigacao.dominio.projeto.TipoFoto;
@@ -122,6 +127,9 @@ class ExecucaoIntegrationTest {
     private SobrasService sobrasService;
 
     @Autowired
+    private SeparacaoService separacaoService;
+
+    @Autowired
     private EstoqueService estoqueService;
 
     @Autowired
@@ -150,6 +158,9 @@ class ExecucaoIntegrationTest {
 
     @Autowired
     private HistoricoProjetoRepository historicoRepository;
+
+    @Autowired
+    private LinhaDoTempoService linhaDoTempoService;
 
     @Autowired
     private EntityManager em;
@@ -365,7 +376,7 @@ class ExecucaoIntegrationTest {
     }
 
     @Test
-    @DisplayName("Só técnico de campo ativo entra na OS, a data não pode ter passado e não há segunda emissão")
+    @DisplayName("Só técnico de campo ativo entra na OS, a data não pode ter passado e, depois da instalação, não há nova emissão")
     void testRegrasDaEmissao() {
         logar(pedro);
         assertThatThrownBy(() -> ordemServicoService.emitir(projetoId, HOJE, List.of(almir.getId())))
@@ -375,10 +386,13 @@ class ExecucaoIntegrationTest {
                 .isInstanceOf(RegraNegocioException.class)
                 .hasMessageContaining("de hoje em diante");
 
-        ordemServicoService.emitir(projetoId, HOJE, List.of(tito.getId()));
+        Long ordemId = ordemServicoService.emitir(projetoId, HOJE, List.of(tito.getId())).getId();
+        ordemServicoService.concluirInstalacao(ordemId);
         assertThatThrownBy(() -> ordemServicoService.emitir(projetoId, HOJE, List.of(tito.getId())))
                 .isInstanceOf(RegraNegocioException.class)
-                .hasMessageContaining("Programando execução");
+                .hasMessageContaining("Programando execução")
+                .hasMessageContaining("Executando instalação")
+                .hasMessageContaining("Validando medição");
     }
 
     @Test
@@ -467,6 +481,36 @@ class ExecucaoIntegrationTest {
                 .andExpect(flash().attribute("aviso", containsString("passou do separado (20)")));
 
         assertThat(item(tuboItem).getQuantidadeApontada()).isEqualByComparingTo("22");
+    }
+
+    @Test
+    @DisplayName("Separação parcial: apontar o que ainda não foi separado usa a reserva do projeto, e separar depois "
+            + "só baixa a diferença")
+    void testApontarAntesDeSeparar() {
+        // A obra começou sem o filtro: 5 reservados para o projeto, nenhum separado, nada disponível
+        estoqueService.entradaCompra(filtroId, new BigDecimal("5"));
+        estoqueService.reservar(filtroId, projetoId, new BigDecimal("5"));
+        Long filtroItem = itemProjetoRepository.save(new ItemProjeto(null, projetoRepository.getReferenceById(projetoId),
+                materialRepository.getReferenceById(filtroId), new BigDecimal("5"), BigDecimal.ZERO, BigDecimal.ZERO,
+                null)).getId();
+        Long ordemId = emitir();
+
+        // O técnico usa 3 filtros antes da separação: saem da reserva do próprio projeto
+        apontamentoService.apontarMaterial(ordemId, filtroId, new BigDecimal("3"));
+        Material filtro = material(filtroId);
+        assertThat(filtro.getSaldo()).isEqualByComparingTo("2");
+        assertThat(filtro.getSaldoReservado()).isEqualByComparingTo("2");
+
+        // O almoxarifado separa os 5 do item: só os 2 que ainda estavam no estoque saem agora
+        logar(almir);
+        separacaoService.separar(projetoId, Map.of(filtroItem, new BigDecimal("5")));
+        filtro = material(filtroId);
+        assertThat(filtro.getSaldo()).isEqualByComparingTo("0");
+        assertThat(filtro.getSaldoReservado()).isEqualByComparingTo("0");
+        assertThat(item(filtroItem).getQuantidadeSeparada()).isEqualByComparingTo("5");
+        // Separados 5 e usados 3: sobram 2 para devolver no fim
+        assertThat(sobrasService.sobras(projetoId)).filteredOn(s -> s.getItem().getId().equals(filtroItem))
+                .singleElement().satisfies(s -> assertThat(s.getSobra()).isEqualByComparingTo("2"));
     }
 
     @Test
@@ -727,6 +771,8 @@ class ExecucaoIntegrationTest {
     @Test
     @DisplayName("Sobra é separada menos apontada e nunca fica negativa")
     void testCalculoDasSobras() {
+        // Os 10 gotejadores além do separado saem do estoque: precisa haver saldo para eles
+        estoqueService.entradaCompra(gotejadorId, new BigDecimal("10"));
         Long ordemId = emitir();
         apontamentoService.apontarMaterial(ordemId, tuboId, new BigDecimal("17.25"));
         apontamentoService.apontarMaterial(ordemId, gotejadorId, new BigDecimal("410"));
@@ -804,6 +850,7 @@ class ExecucaoIntegrationTest {
 
         mockMvc.perform(get("/estoque/projetos/{id}/sobras", projetoId).with(logado("carlos")))
                 .andExpect(status().isOk())
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "Sobras do projeto"))
                 .andExpect(content().string(not(containsString("Confirmar devolução"))));
         mockMvc.perform(post("/estoque/projetos/{id}/sobras", projetoId)
                 .param("devolvidas[" + tuboItem + "]", "3")
@@ -824,6 +871,7 @@ class ExecucaoIntegrationTest {
         // Projetista programa a execução
         mockMvc.perform(get("/engenharia/projetos/{id}/programacao", projetoId).with(logado("pedro")))
                 .andExpect(status().isOk())
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "Programação da execução"))
                 .andExpect(content().string(containsString("Tito Técnico")));
         mockMvc.perform(post("/engenharia/projetos/{id}/programacao", projetoId)
                 .param("dataProgramada", "2026-11-16").param("tecnicos", tito.getId().toString())
@@ -836,6 +884,7 @@ class ExecucaoIntegrationTest {
         mockMvc.perform(get(ordem).with(logado("tito")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("tela-campo")))
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "OS 1"))
                 .andExpect(content().string(containsString("Apontar horas")))
                 .andExpect(content().string(containsString("Concluir instalação")));
         mockMvc.perform(post(ordem + "/horas").param("horas", "6.5").with(csrf()).with(logado("tito")))
@@ -907,9 +956,15 @@ class ExecucaoIntegrationTest {
         assertThat(projeto().isSobrasDevolvidas()).isTrue();
         assertThat(material(tuboId).getSaldo()).isEqualByComparingTo("32");
 
-        // A aba Execução mostra tudo
+        // A aba Execução mostra tudo. Com as sobras tratadas, falta liberar o faturamento: a página abre no
+        // Encerramento, e o botão de liberar é só do financeiro
         mockMvc.perform(get("/projetos/{id}", projetoId).with(logado("ana")))
                 .andExpect(status().isOk())
+                .andExpect(model().attribute("abaAtual", AbaProjeto.ENCERRAMENTO))
+                .andExpect(content().string(containsString("Liberação do faturamento")))
+                .andExpect(content().string(not(containsString("href=\"/financeiro/liberacoes/" + projetoId + "\""))))
+                .andExpect(content().string(containsString("liberar o faturamento e registrar a garantia")))
+                .andExpect(content().string(containsString("Aguardando o financeiro.")))
                 .andExpect(content().string(containsString("programada para 16/11/2026")))
                 .andExpect(content().string(containsString("6,5 h no total")))
                 .andExpect(content().string(containsString("Dentro do parâmetro")))
@@ -924,5 +979,195 @@ class ExecucaoIntegrationTest {
                 SituacaoProjeto.CORRIGINDO_INSTALACAO, SituacaoProjeto.EXECUTANDO_INSTALACAO,
                 SituacaoProjeto.VALIDANDO_MEDICAO, SituacaoProjeto.COLHENDO_ACEITE, SituacaoProjeto.TRATANDO_PENDENCIA,
                 SituacaoProjeto.COLHENDO_ACEITE, SituacaoProjeto.FINALIZANDO_EXECUCAO);
+    }
+
+    // ---------- Várias ordens de serviço ao mesmo tempo (RF15, RF16) ----------
+
+    /** OS 1 com o Tito e OS 2 com a Tânia, as duas abertas. Devolve os ids na ordem. */
+    private List<Long> emitirDuasOrdens() {
+        logar(pedro);
+        Long primeira = ordemServicoService.emitir(projetoId, HOJE, List.of(tito.getId())).getId();
+        Long segunda = ordemServicoService.emitir(projetoId, HOJE.plusDays(1), List.of(tania.getId())).getId();
+        return List.of(primeira, segunda);
+    }
+
+    @Test
+    @DisplayName("A segunda OS entra na execução em andamento, numerada, sem nova mudança de situação")
+    void testSegundaOrdemNaExecucao() throws Exception {
+        logar(pedro);
+        ordemServicoService.emitir(projetoId, HOJE, List.of(tito.getId()));
+        int mudancas = historico().size();
+
+        mockMvc.perform(post("/engenharia/projetos/{id}/programacao", projetoId)
+                .param("dataProgramada", "2026-11-17")
+                .param("tecnicos", tania.getId().toString())
+                .with(csrf()).with(logado("pedro")))
+                .andExpect(redirectedUrl("/projetos/" + projetoId))
+                .andExpect(flash().attribute("sucesso", containsString("Ordem de serviço 2 emitida e somada à execução")));
+
+        assertThat(projeto().getSituacao()).isEqualTo(SituacaoProjeto.EXECUTANDO_INSTALACAO);
+        assertThat(historico()).hasSize(mudancas);
+        assertThat(ordemServicoService.doProjeto(projetoId)).extracting(OrdemServico::getNumero).containsExactly(1, 2);
+        mockMvc.perform(get("/engenharia/projetos/{id}/programacao", projetoId).with(logado("pedro")))
+                .andExpect(content().string(containsString("Outra ordem de serviço")));
+        mockMvc.perform(get("/projetos/{id}", projetoId).with(logado("pedro")))
+                .andExpect(content().string(containsString("Emitir outra OS")));
+    }
+
+    @Test
+    @DisplayName("A medição só começa quando todas as OS abertas concluírem a instalação")
+    void testInstalacaoConcluidaPorOrdem() throws Exception {
+        List<Long> ordens = emitirDuasOrdens();
+        Long primeira = ordens.get(0);
+        Long segunda = ordens.get(1);
+
+        mockMvc.perform(post("/campo/ordens/{id}/conclusao", primeira).with(csrf()).with(logado("tito")))
+                .andExpect(redirectedUrl("/campo/ordens/" + primeira))
+                .andExpect(flash().attribute("sucesso",
+                        "Instalação da OS 1 concluída. A medição começa quando a OS 2 (Tânia Técnica) também concluir."));
+        assertThat(projeto().getSituacao()).isEqualTo(SituacaoProjeto.EXECUTANDO_INSTALACAO);
+        assertThat(ordemRepository.findById(primeira).orElseThrow().getInstalacaoConcluidaEm())
+                .isEqualTo(RelogioDeTesteConfig.INICIO);
+        mockMvc.perform(get("/campo/ordens/{id}", primeira).with(logado("tito")))
+                .andExpect(content().string(containsString("Instalação desta OS concluída")))
+                .andExpect(content().string(not(containsString("Apontar horas"))));
+
+        // A OS 1 fechou os lançamentos; a OS 2 continua apontando
+        logar(tito);
+        assertThatThrownBy(() -> apontamentoService.apontarHoras(primeira, BigDecimal.ONE))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("os lançamentos dela estão fechados");
+        assertThatThrownBy(() -> ordemServicoService.concluirInstalacao(primeira))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("já foi concluída");
+        logar(tania);
+        apontamentoService.apontarHoras(segunda, new BigDecimal("6"));
+
+        mockMvc.perform(post("/campo/ordens/{id}/conclusao", segunda).with(csrf()).with(logado("tania")))
+                .andExpect(flash().attribute("sucesso", "Instalação concluída. Agora meça a pressão e a vazão."));
+        assertThat(projeto().getSituacao()).isEqualTo(SituacaoProjeto.VALIDANDO_MEDICAO);
+        HistoricoProjeto ultimo = historico().get(historico().size() - 1);
+        assertThat(ultimo.getObservacao()).isEqualTo("Instalação concluída (ordens de serviço 1 e 2).");
+    }
+
+    @Test
+    @DisplayName("Na correção, só a OS que registrou volta a instalar; as outras seguem concluídas")
+    void testCorrecaoReabreSoAOrdemQueRegistrou() {
+        List<Long> ordens = emitirDuasOrdens();
+        logar(tito);
+        ordemServicoService.concluirInstalacao(ordens.get(0));
+        logar(tania);
+        ordemServicoService.concluirInstalacao(ordens.get(1));
+        medicaoService.registrar(projetoId, 25.0, 6.0, null, null, null);
+        assertThat(projeto().getSituacao()).isEqualTo(SituacaoProjeto.CORRIGINDO_INSTALACAO);
+
+        ordemServicoService.registrarCorrecao(ordens.get(1), "Válvula trocada.");
+
+        assertThat(projeto().getSituacao()).isEqualTo(SituacaoProjeto.EXECUTANDO_INSTALACAO);
+        assertThat(ordemRepository.findById(ordens.get(0)).orElseThrow().getInstalacaoConcluidaEm()).isNotNull();
+        assertThat(ordemRepository.findById(ordens.get(1)).orElseThrow().getInstalacaoConcluidaEm()).isNull();
+        assertThat(ordemServicoService.instalacaoPendente(projetoId)).extracting(OrdemServico::getNumero)
+                .containsExactly(2);
+        ordemServicoService.concluirInstalacao(ordens.get(1));
+        assertThat(projeto().getSituacao()).isEqualTo(SituacaoProjeto.VALIDANDO_MEDICAO);
+    }
+
+    @Test
+    @DisplayName("Quem acompanha vê as OS de todas as equipes, filtra por técnico e inclui as concluídas")
+    void testOrdensParaQuemAcompanha() throws Exception {
+        emitirDuasOrdens();
+
+        mockMvc.perform(get("/campo/minhas-os").with(logado("pedro")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("<h1 class=\"page-title mb-3\">Ordens de serviço</h1>")))
+                .andExpect(content().string(containsString("OS 1 · PRJ-2026-0001")))
+                .andExpect(content().string(containsString("OS 2 · PRJ-2026-0001")))
+                .andExpect(content().string(containsString("Tânia Técnica")));
+        mockMvc.perform(get("/campo/minhas-os").param("tecnico", tania.getId().toString()).with(logado("pedro")))
+                .andExpect(content().string(containsString("OS 2 · PRJ-2026-0001")))
+                .andExpect(content().string(not(containsString("OS 1 · PRJ-2026-0001"))));
+        // O técnico continua vendo só as dele
+        mockMvc.perform(get("/campo/minhas-os").with(logado("tito")))
+                .andExpect(content().string(containsString("Minhas OS")))
+                .andExpect(content().string(containsString("OS 1 · PRJ-2026-0001")))
+                .andExpect(content().string(not(containsString("OS 2 · PRJ-2026-0001"))));
+
+        // Concluídas só aparecem quando pedidas
+        logar(tito);
+        Long ordemId = ordemServicoService.doProjeto(projetoId).get(0).getId();
+        ordemServicoService.concluirInstalacao(ordemId);
+        logar(tania);
+        ordemServicoService.concluirInstalacao(ordemServicoService.doProjeto(projetoId).get(1).getId());
+        medicaoService.registrar(projetoId, 30.0, 6.0, null, null, null);
+        aceiteService.registrarAceite(projetoId, "João Batista Ferreira", assinatura());
+        mockMvc.perform(get("/campo/minhas-os").with(logado("pedro")))
+                .andExpect(content().string(containsString("Nenhuma ordem de serviço com esse filtro.")));
+        mockMvc.perform(get("/campo/minhas-os").param("concluidas", "true").with(logado("pedro")))
+                .andExpect(content().string(containsString("OS 1 · PRJ-2026-0001")))
+                .andExpect(content().string(containsString("Concluída em 16/11/2026")));
+    }
+
+    // ---------- Material além do separado sai do estoque (RF16, RF07) ----------
+
+    @Test
+    @DisplayName("O que passa do separado sai do estoque na hora, e excluir o lançamento devolve")
+    void testExcessoBaixaDoEstoque() {
+        Long ordemId = emitir();
+        relogio.avancar(Duration.ofMinutes(10));
+        // Tubo: 20 separados, 30 no estoque depois da separação
+        apontamentoService.apontarMaterial(ordemId, tuboId, new BigDecimal("18"));
+        assertThat(material(tuboId).getSaldo()).isEqualByComparingTo("30");
+
+        apontamentoService.apontarMaterial(ordemId, tuboId, new BigDecimal("5"));
+        Material depois = material(tuboId);
+        assertThat(depois.getSaldo()).isEqualByComparingTo("27");
+        assertThat(depois.getSaldoReservado()).isEqualByComparingTo("0");
+
+        relogio.avancar(Duration.ofMinutes(10));
+        apontamentoService.excluirUltimo(ordemId);
+        assertThat(material(tuboId).getSaldo()).isEqualByComparingTo("30");
+        assertThat(item(tuboItem).getQuantidadeApontada()).isEqualByComparingTo("18");
+
+        relogio.avancar(Duration.ofMinutes(10));
+        apontamentoService.apontarMaterial(ordemId, tuboId, new BigDecimal("7"));
+        assertThat(material(tuboId).getSaldo()).isEqualByComparingTo("25");
+
+        List<TipoMovimentacao> tipos = estoqueService.extrato(tuboId, null, null, projetoId, PageRequest.of(0, 50))
+                .getContent().stream().map(MovimentacaoEstoque::getTipo).toList();
+        // Do mais novo para o mais antigo
+        assertThat(tipos).containsExactly(TipoMovimentacao.SAIDA_PROJETO, TipoMovimentacao.RESERVA,
+                TipoMovimentacao.DEVOLUCAO, TipoMovimentacao.SAIDA_PROJETO, TipoMovimentacao.RESERVA,
+                TipoMovimentacao.SAIDA_PROJETO, TipoMovimentacao.RESERVA);
+        assertThat(sobra(tuboItem).getSobra()).isEqualByComparingTo("0");
+        assertThat(linhaDoTempoService.doProjeto(projetoId)).extracting(EventoProjeto::titulo)
+                .contains("Material usado além do separado baixado do estoque", "Baixa além do separado desfeita");
+    }
+
+    @Test
+    @DisplayName("Sem saldo disponível para o excesso, o apontamento é recusado com o que falta")
+    void testExcessoSemSaldo() {
+        Long ordemId = emitir();
+        // Gotejador: os 400 do estoque foram separados; não sobrou nada disponível
+        assertThatThrownBy(() -> apontamentoService.apontarMaterial(ordemId, gotejadorId, new BigDecimal("401")))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessage("O apontado de GT-AUT-2L passa do separado em 1 un e o estoque só tem 0 un disponível "
+                        + "para baixar. Confira o lançamento ou peça ao almoxarifado para conferir o estoque.");
+    }
+
+    @Test
+    @DisplayName("Ciclo completo com excesso: o estoque fica com exatamente o que não foi usado")
+    void testCicloComExcessoFechaOEstoque() {
+        // Tubo: 50 comprados, 20 separados; o técnico usa 23
+        Long ordemId = emitir();
+        apontamentoService.apontarMaterial(ordemId, tuboId, new BigDecimal("23"));
+        apontamentoService.apontarMaterial(ordemId, gotejadorId, new BigDecimal("380"));
+        ordemServicoService.concluirInstalacao(ordemId);
+        medicaoService.registrar(projetoId, 30.0, 6.0, null, null, null);
+        aceiteService.registrarAceite(projetoId, "João Batista Ferreira", assinatura());
+        logar(almir);
+        sobrasService.devolver(projetoId, Map.of(gotejadorItem, new BigDecimal("20")));
+
+        assertThat(material(tuboId).getSaldo()).isEqualByComparingTo("27");
+        assertThat(material(gotejadorId).getSaldo()).isEqualByComparingTo("20");
     }
 }

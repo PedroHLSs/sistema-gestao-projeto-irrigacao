@@ -54,10 +54,15 @@ public class SobrasController {
             return "redirect:/estoque/projetos/" + id + "/sobras";
         }
         boolean temSobra = sobrasService.sobras(id).stream().anyMatch(SobraItem::isTemSobra);
-        sobrasService.devolver(id, form.getDevolvidas());
-        redirect.addFlashAttribute("sucesso", temSobra
+        int reservasLiberadas = sobrasService.devolver(id, form.getDevolvidas());
+        String reservas = reservasLiberadas == 0 ? ""
+                : reservasLiberadas == 1
+                        ? " A reserva de 1 material que não chegou a ser separado voltou ao estoque disponível."
+                        : " A reserva de " + reservasLiberadas + " materiais que não chegaram a ser separados voltou "
+                                + "ao estoque disponível.";
+        redirect.addFlashAttribute("sucesso", (temSobra
                 ? "Devolução das sobras registrada: o que voltou entrou no estoque."
-                : "Confirmado: o projeto não teve sobras.");
+                : "Confirmado: o projeto não teve sobras.") + reservas);
         return ProjetoController.paginaDoProjeto(id);
     }
 }

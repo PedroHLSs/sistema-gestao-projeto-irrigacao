@@ -218,7 +218,7 @@ class GatewaysNegativosSistemaTest extends ProcessoSistemaBase {
 
         // Junta com o caminho do Sim: separação (atividade 13)
         separar(projetoId, materialId, "10");
-        conferirSeparacao(projetoId);
+        liberarExecucao(projetoId);
         assertThat(situacao(projetoId)).isEqualTo(SituacaoProjeto.PROGRAMANDO_EXECUCAO);
         conferirSaldo(materialId, "0", "0");
     }
@@ -248,7 +248,7 @@ class GatewaysNegativosSistemaTest extends ProcessoSistemaBase {
         postar(ALMOXARIFE, "/estoque/requisicoes/" + cotacao.getId() + "/recebimento");
 
         separar(segundo, materialId, "40");
-        conferirSeparacao(segundo);
+        liberarExecucao(segundo);
         assertThat(situacao(segundo)).isEqualTo(SituacaoProjeto.PROGRAMANDO_EXECUCAO);
         assertThat(movimentos(segundo, materialId).get(TipoMovimentacao.SAIDA_PROJETO)).isEqualByComparingTo("40");
     }
@@ -265,36 +265,37 @@ class GatewaysNegativosSistemaTest extends ProcessoSistemaBase {
 
         separar(projetoId, materialId, "10");
         conferirSaldo(materialId, "10", "10");
-        conferirSeparacao(projetoId);
+        liberarExecucao(projetoId);
 
         assertThat(situacao(projetoId)).isEqualTo(SituacaoProjeto.PROGRAMANDO_EXECUCAO);
         conferirSaldo(materialId, "0", "0");
     }
 
-    // ---------- G5: separação confere? Não: volta à atividade 13 ----------
+    // ---------- G5: há material separado para a obra começar? Não: volta à atividade 13 ----------
 
     @Test
-    @DisplayName("G5 Não: separação divergente lista a diferença, não baixa o estoque e volta para separar")
-    void testG5SeparacaoDivergente() throws Exception {
+    @DisplayName("G5 Não: sem item separado a execução não é liberada; com parte separada a obra começa e o resto sai depois")
+    void testG5LiberacaoComSeparacaoParcial() throws Exception {
         Long materialId = materialComSaldo("10.00", "6.00", "50");
         Long projetoId = projetoAprovado(materialId, "20");
-        separar(projetoId, materialId, "18");
 
-        mockMvc.perform(post("/estoque/projetos/" + projetoId + "/separacao/conferencia")
+        // Nada separado: a liberação é recusada e nada muda
+        mockMvc.perform(post("/estoque/projetos/" + projetoId + "/separacao/liberacao")
                 .with(csrf()).with(logado(ALMOXARIFE)))
-                .andExpect(redirectedUrl("/estoque/projetos/" + projetoId + "/separacao"))
-                .andExpect(flash().attribute("erro", containsString("não bate com a lista técnica")))
-                .andExpect(flash().attributeExists("divergencias"));
-
+                .andExpect(flash().attribute("erro", containsString("Separe pelo menos um item")));
         assertThat(situacao(projetoId)).isEqualTo(SituacaoProjeto.PREPARANDO_MATERIAL);
         assertThat(projeto(projetoId).isSeparacaoConferida()).isFalse();
         conferirSaldo(materialId, "50", "20");
         assertThat(movimentos(projetoId, materialId)).doesNotContainKey(TipoMovimentacao.SAIDA_PROJETO);
 
-        // Volta à atividade 13: corrigida, a conferência passa
-        separar(projetoId, materialId, "20");
-        conferirSeparacao(projetoId);
+        // Com 18 das 20 separadas a obra começa: só as 18 saem, e as 2 restantes ficam reservadas
+        separar(projetoId, materialId, "18");
+        liberarExecucao(projetoId);
         assertThat(situacao(projetoId)).isEqualTo(SituacaoProjeto.PROGRAMANDO_EXECUCAO);
+        conferirSaldo(materialId, "32", "2");
+
+        // As 2 que faltavam são separadas durante a execução e saem do estoque na hora
+        separar(projetoId, materialId, "2");
         conferirSaldo(materialId, "30", "0");
     }
 

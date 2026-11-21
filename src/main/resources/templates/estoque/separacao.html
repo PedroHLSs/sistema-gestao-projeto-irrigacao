@@ -9,24 +9,22 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, 'Separação do material')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <h1 class="page-title mb-2">Separação do material</h1>
         <p class="mb-3">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </p>
 
-        <div th:if="${divergencias != null}" class="alert alert-warning">
-            <div class="fw-semibold mb-1">Itens que não batem com a lista técnica:</div>
-            <ul class="mb-0 ps-3">
-                <li th:each="d : ${divergencias}" th:text="${d}">TB-PVC-050: prevista 20 barra, separada 18 barra (-2)</li>
-            </ul>
+        <div th:unless="${separacaoAberta}" class="alert alert-info">
+            A separação é feita da aprovação da proposta até o aceite do cliente.
         </div>
-        <div th:unless="${emPreparacao}" class="alert alert-info"
-            th:text="${projeto.separacaoConferida} ? 'A separação deste projeto já foi conferida.' : 'A separação é feita com o projeto em &quot;Preparando material&quot;.'">
-            A separação deste projeto já foi conferida.
+        <!-- Separação parcial: depois da liberação, o restante é separado durante a instalação -->
+        <div th:if="${separacaoAberta and liberada}" class="alert alert-info">
+            A execução já foi liberada. Continue separando o que falta: cada separação salva agora já sai do
+            estoque para o projeto.
         </div>
 
         <!-- G4: itens ainda não reservados por inteiro e a requisição de compra (RF13) -->
@@ -44,7 +42,7 @@
                             ? |A comprar: ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(falta)} ${d.material.unidade}|
                             : 'Compra coberta pelas requisições.'">A comprar: 300 un</div>
                     <!-- G4: o que passou a faltar depois do orçamento ainda não tem cotação -->
-                    <a th:if="${emPreparacao and podeRequisitar}" sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')"
+                    <a th:if="${separacaoAberta and podeRequisitar}" sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')"
                         th:href="@{/comercial/projetos/{id}/faltantes(id=${projeto.id})}" class="small">Registrar cotação</a>
                 </div>
                 <div class="table-responsive">
@@ -67,7 +65,7 @@
                                     th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(c.quantidade)}">300</td>
                                 <td th:text="${c.situacao.rotulo}">Cotada</td>
                                 <td class="text-end">
-                                    <form th:if="${emPreparacao and podeRequisitar and c.situacao.name() == 'COTADA'}"
+                                    <form th:if="${separacaoAberta and podeRequisitar and c.situacao.name() == 'COTADA'}"
                                         sec:authorize="hasAnyAuthority('COMPRADOR', 'ADMINISTRADOR')"
                                         th:action="@{/estoque/projetos/{id}/requisicoes(id=${projeto.id})}" method="post"
                                         th:attr="data-confirmar=|Requisitar a compra a ${c.fornecedor}? Se ela cobrir o que falta, as outras cotações deste item serão descartadas.|">
@@ -87,8 +85,36 @@
             </section>
         </th:block>
 
+        <!-- RF14: andamento da separação, que pode ser feita aos poucos, em várias gravações -->
+        <section th:if="${separacaoAberta}" class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">
+                    <h2 class="h6 mb-0"
+                        th:text="|${progresso.completos} de ${progresso.total} itens separados por completo|">12 de 40 itens separados por completo</h2>
+                    <span th:if="${progresso.emAndamento > 0}" class="small text-muted"
+                        th:text="${progresso.emAndamento == 1} ? '1 item em andamento' : |${progresso.emAndamento} itens em andamento|">3 itens em andamento</span>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Itens separados por completo" aria-valuemin="0"
+                    aria-valuemax="100" th:attr="aria-valuenow=${progresso.percentual}">
+                    <div class="progress-bar bg-success" th:style="|width: ${progresso.percentual}%|"></div>
+                </div>
+                <p class="small text-muted mb-0 mt-2">
+                    Não precisa separar tudo de uma vez. Em "Separar agora", informe só o que você separou desta vez:
+                    o sistema soma ao que já estava separado e guarda para você continuar depois.
+                    <th:block th:unless="${liberada}">Para corrigir um engano, informe a diferença com sinal de menos
+                        (por exemplo, -5).</th:block>
+                </p>
+            </div>
+        </section>
+
         <!-- RF14: separação, item a item, liberada só para o item reservado por inteiro -->
         <form th:action="@{/estoque/projetos/{id}/separacao(id=${projeto.id})}" method="post" class="mb-3">
+            <div th:if="${separacaoAberta}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
+                class="d-flex justify-content-end mb-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-preencher-tudo>
+                    <i class="fas fa-check-double me-1"></i>Separar tudo o que falta
+                </button>
+            </div>
             <div class="table-responsive bg-white border rounded shadow-sm mb-3">
                 <table class="table align-middle mb-0">
                     <thead>
@@ -97,46 +123,74 @@
                             <th scope="col" class="text-end">Prevista</th>
                             <th scope="col" class="text-end">Reservada</th>
                             <th scope="col" class="text-end">Separada</th>
+                            <th scope="col" th:if="${separacaoAberta}" class="text-end">Falta</th>
+                            <th scope="col" th:if="${separacaoAberta}" class="text-end">Separar agora</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="d : ${itens}" th:with="separavel=${separaveis.contains(d.item.id)}">
+                        <tr th:each="d : ${itens}"
+                            th:with="separavel=${separaveis.contains(d.item.id)}, completo=${d.separada.compareTo(d.prevista) == 0},
+                                acima=${d.separada.compareTo(d.prevista) > 0}, campo=|separar${d.item.id}|">
                             <td>
                                 <span class="fw-semibold" th:text="${d.material.codigo}">TB-PVC-050</span>
                                 <span class="small text-muted" th:text="${d.material.descricao}">Tubo</span>
+                                <th:block th:if="${separacaoAberta}">
+                                    <span th:if="${completo}" class="badge text-bg-success ms-1">Completo</span>
+                                    <span th:if="${acima}" class="badge text-bg-danger ms-1">Acima da prevista</span>
+                                    <span th:if="${!completo and !acima and d.separada.signum() > 0}"
+                                        class="badge text-bg-warning ms-1">Em andamento</span>
+                                </th:block>
                             </td>
-                            <td class="text-end text-nowrap"
-                                th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.prevista)} ${d.material.unidade}|">20 barra</td>
-                            <td class="text-end text-nowrap"
-                                th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.reservadaParaProjeto)}">20</td>
-                            <td class="text-end">
-                                <input th:if="${emPreparacao}" type="number" step="0.001" min="0"
-                                    class="form-control form-control-sm campo-quantidade ms-auto"
-                                    th:name="|quantidades[${d.item.id}]|"
-                                    th:value="${d.item.quantidadeSeparada.stripTrailingZeros().toPlainString()}"
-                                    th:disabled="${!separavel}"
-                                    th:attr="aria-label=|Quantidade separada de ${d.material.codigo}|">
-                                <div th:if="${emPreparacao and !separavel}" class="small text-muted">aguardando reserva</div>
-                                <span th:unless="${emPreparacao}"
-                                    th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.item.quantidadeSeparada)}">20</span>
+                            <td class="text-end text-nowrap" th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.prevista)} ${d.material.unidade}|">20 barra</td>
+                            <td class="text-end text-nowrap" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.reservadaParaProjeto)}">20</td>
+                            <td class="text-end text-nowrap" th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.separada)}">12</td>
+                            <td th:if="${separacaoAberta}" class="text-end text-nowrap"
+                                th:text="${d.faltaSeparar.signum() > 0} ? ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(d.faltaSeparar)} : '—'">8</td>
+                            <td th:if="${separacaoAberta}" class="text-end">
+                                <div th:if="${separavel}" class="input-group input-group-sm flex-nowrap justify-content-end">
+                                    <input type="number" step="0.001" class="form-control campo-quantidade"
+                                        th:id="${campo}" th:name="|quantidades[${d.item.id}]|"
+                                        th:attr="min=${liberada ? '0' : d.separada.negate().stripTrailingZeros().toPlainString()},
+                                            max=${d.faltaSeparar.stripTrailingZeros().toPlainString()},
+                                            aria-label=|Quantidade de ${d.material.codigo} separada agora|">
+                                    <button th:if="${d.faltaSeparar.signum() > 0}" type="button" class="btn btn-outline-secondary"
+                                        sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
+                                        th:attr="data-preencher=${campo}, data-valor=${d.faltaSeparar.stripTrailingZeros().toPlainString()},
+                                            aria-label=|Preencher com tudo o que falta de ${d.material.codigo}|"
+                                        title="Preencher com tudo o que falta">Tudo</button>
+                                </div>
+                                <div th:unless="${separavel}" class="small text-muted">aguardando reserva</div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <button th:if="${emPreparacao}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
-                type="submit" class="btn btn-primary">
-                <i class="fas fa-floppy-disk me-2"></i>Salvar separação
-            </button>
+            <th:block th:if="${separacaoAberta}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-floppy-disk me-2"></i>Salvar separação
+                </button>
+                <span class="form-text ms-2"
+                    th:text="${liberada} ? 'Cada separação salva sai do estoque para o projeto.' : 'Salve quantas vezes precisar; o que já foi separado fica guardado.'">
+                    Salve quantas vezes precisar; o que já foi separado fica guardado.</span>
+            </th:block>
         </form>
 
-        <form th:if="${emPreparacao}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
-            th:action="@{/estoque/projetos/{id}/separacao/conferencia(id=${projeto.id})}" method="post"
-            data-confirmar="Conferir a separação? Se tudo bater, o material sai do estoque para o projeto.">
-            <button type="submit" class="btn btn-success btn-lg">
-                <i class="fas fa-clipboard-check me-2"></i>Conferir separação
+        <!--
+            G5: a execução é liberada com pelo menos um item separado. O separado sai do estoque e a
+            engenharia programa a instalação; o restante é separado durante a execução.
+        -->
+        <form th:if="${podeLiberar}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
+            th:action="@{/estoque/projetos/{id}/separacao/liberacao(id=${projeto.id})}" method="post"
+            data-confirmar="Liberar a execução com o que já foi separado? O separado sai do estoque para o projeto e a engenharia pode programar a instalação. O restante continua sendo separado depois.">
+            <button type="submit" class="btn btn-success btn-lg"
+                th:disabled="${progresso.completos + progresso.emAndamento == 0}">
+                <i class="fas fa-truck-ramp-box me-2"></i>Liberar para a execução
             </button>
-            <span class="form-text ms-2">Compara a separada com a prevista. Salve a separação antes.</span>
+            <span class="form-text ms-2"
+                th:text="${progresso.completa} ? 'Tudo separado: o material sai do estoque e a engenharia pode programar a instalação.'
+                    : (${progresso.completos + progresso.emAndamento == 0} ? 'Separe pelo menos um item para liberar a execução.'
+                        : 'A obra pode começar com o que já foi separado. O restante continua reservado e é separado durante a instalação.')">
+                Separe pelo menos um item para liberar a execução.</span>
         </form>
     </main>
 

@@ -53,6 +53,11 @@ public class ListaTecnicaServiceImpl implements ListaTecnicaService {
     }
 
     @Override
+    public BigDecimal faltaEmEstoque(ItemProjeto item) {
+        return item.getQuantidadePrevista().subtract(item.getMaterial().getDisponivel()).max(BigDecimal.ZERO);
+    }
+
+    @Override
     @Transactional
     public ItemProjeto adicionar(Long projetoId, Long materialId, BigDecimal quantidadePrevista) {
         Projeto projeto = dimensionamentoService.exigirEngenhariaLiberada(projetoId);

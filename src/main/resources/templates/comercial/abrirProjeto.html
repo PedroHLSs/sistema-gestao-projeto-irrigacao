@@ -8,6 +8,7 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: secao('Projetos', @{/projetos}, 'Abrir projeto')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <h1 class="page-title">Abrir projeto</h1>

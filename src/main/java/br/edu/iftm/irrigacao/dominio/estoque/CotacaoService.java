@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
+import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 
 /**
  * Cotação dos materiais faltantes com fornecedores (RF08, atividade 7). Cada cotação nasce em
@@ -24,8 +25,10 @@ public interface CotacaoService {
     Map<Long, Cotacao> maisBaratas(Long projetoId);
 
     /**
-     * A cotação é registrada no orçamento (ORCANDO) e também em PREPARANDO_MATERIAL, para o que passou
-     * a faltar depois do orçamento e precisa de requisição de compra (G4, RF13).
+     * A cotação é registrada no orçamento (ORCANDO) e também enquanto o material do projeto está em
+     * andamento ({@link SituacaoProjeto#isMaterialEmAndamento()}), para o que passou a faltar depois do
+     * orçamento e precisa de requisição de compra (G4, RF13). Em projeto que começou com a separação
+     * parcial, a compra do que falta continua durante a instalação.
      */
     boolean podeCotar(Projeto projeto);
 
@@ -50,8 +53,9 @@ public interface CotacaoService {
      * Requisição de compra (RF13, G4): a cotação escolhida vai para REQUISITADA. O mesmo material
      * pode ter mais de uma requisição no projeto enquanto faltar comprar (por exemplo, parte de um
      * fornecedor e parte de outro). Quando as requisições cobrem o faltante, as outras cotações do
-     * item que ainda estavam em COTADA vão para DESCARTADA. Só com o projeto em PREPARANDO_MATERIAL,
-     * para cotação COTADA de material que ainda tem o que comprar.
+     * item que ainda estavam em COTADA vão para DESCARTADA. Só com o material do projeto em andamento
+     * ({@link SituacaoProjeto#isMaterialEmAndamento()}), para cotação COTADA de material que ainda tem o
+     * que comprar.
      */
     Cotacao requisitar(Long projetoId, Long cotacaoId);
 

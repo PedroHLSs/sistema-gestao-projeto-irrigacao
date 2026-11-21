@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -199,26 +200,40 @@ class SegurancaIntegrationTest {
                 .andExpect(content().string(containsString(">Vendedor</span>")))
                 .andExpect(content().string(containsString("action=\"/logout\"")))
                 .andExpect(content().string(containsString("Projetos</a>")))
-                .andExpect(content().string(containsString("Comercial</a>")))
-                .andExpect(content().string(not(containsString("Engenharia</a>"))))
-                .andExpect(content().string(not(containsString("Estoque</a>"))))
-                .andExpect(content().string(not(containsString("Campo</a>"))))
-                .andExpect(content().string(not(containsString("Financeiro</a>"))))
-                .andExpect(content().string(not(containsString("Diretoria</a>"))))
+                // A área é o título do grupo; os itens têm o nome da página que abrem
+                .andExpect(content().string(containsString("app-menu-secao\">Comercial</p>")))
+                .andExpect(content().string(containsString("Produtores</a>")))
+                .andExpect(content().string(containsString("Propostas</a>")))
+                .andExpect(content().string(not(containsString("app-menu-secao\">Engenharia</p>"))))
+                .andExpect(content().string(not(containsString("Fila da engenharia</a>"))))
+                .andExpect(content().string(not(containsString("Materiais</a>"))))
+                .andExpect(content().string(not(containsString("Minhas OS</a>"))))
+                .andExpect(content().string(not(containsString("Liberação do faturamento</a>"))))
+                .andExpect(content().string(not(containsString("Aprovações de desconto</a>"))))
                 .andExpect(content().string(not(containsString("Usuários</a>"))));
     }
 
-    /** Itens de menu que cada perfil vê, além de Início e Projetos, que todos veem. */
+    /**
+     * Itens de menu que cada perfil vê, além de Início, Projetos e Agenda de visitas, que todos veem. Cada
+     * item tem o nome da página que abre; a lista de ordens de serviço é "Minhas OS" só para o técnico.
+     */
     private static final Map<Perfil, Set<String>> MENU = Map.of(
-            Perfil.VENDEDOR, Set.of("Comercial"),
-            Perfil.PROJETISTA, Set.of("Engenharia", "Campo"),
-            Perfil.COMPRADOR, Set.of("Estoque"),
-            Perfil.ALMOXARIFE, Set.of("Estoque"),
-            Perfil.TECNICO_CAMPO, Set.of("Campo"),
-            Perfil.FINANCEIRO, Set.of("Financeiro", "Orçado x realizado"),
-            Perfil.DIRETORIA, Set.of("Comercial", "Financeiro", "Diretoria", "Orçado x realizado"),
-            Perfil.ADMINISTRADOR, Set.of("Comercial", "Engenharia", "Estoque", "Campo", "Financeiro", "Diretoria",
+            Perfil.VENDEDOR, Set.of("Produtores", "Propostas"),
+            Perfil.PROJETISTA, Set.of("Fila da engenharia", "Ordens de serviço"),
+            Perfil.COMPRADOR, Set.of("Fila do estoque", "Materiais", "Requisições de compra"),
+            Perfil.ALMOXARIFE, Set.of("Fila do estoque", "Materiais", "Requisições de compra"),
+            Perfil.TECNICO_CAMPO, Set.of("Minhas OS"),
+            Perfil.FINANCEIRO, Set.of("Liberação do faturamento", "Orçado x realizado"),
+            Perfil.DIRETORIA, Set.of("Produtores", "Propostas", "Liberação do faturamento", "Aprovações de desconto",
+                    "Orçado x realizado"),
+            Perfil.ADMINISTRADOR, Set.of("Produtores", "Propostas", "Fila da engenharia", "Fila do estoque", "Materiais",
+                    "Requisições de compra", "Ordens de serviço", "Liberação do faturamento", "Aprovações de desconto",
                     "Orçado x realizado", "Usuários"));
+
+    /** Todos os itens que dependem do perfil, para conferir também os que não devem aparecer. */
+    private static final Set<String> TODOS_OS_ITENS = MENU.values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
 
     @ParameterizedTest(name = "menu do perfil {0}")
     @MethodSource("perfis")
@@ -228,8 +243,8 @@ class SegurancaIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(pagina).contains("Início</a>", "Projetos</a>");
-        for (String item : MENU.get(Perfil.ADMINISTRADOR)) {
+        assertThat(pagina).contains("Início</a>", "Projetos</a>", "Agenda de visitas</a>");
+        for (String item : TODOS_OS_ITENS) {
             if (MENU.get(perfil).contains(item)) {
                 assertThat(pagina).contains(item + "</a>");
             } else {

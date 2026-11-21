@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -14,8 +16,11 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
+import br.edu.iftm.irrigacao.dominio.acesso.Usuario;
 import br.edu.iftm.irrigacao.dominio.acesso.UsuarioLogado;
 import br.edu.iftm.irrigacao.dominio.estoque.ListaTecnicaService;
 import br.edu.iftm.irrigacao.dominio.estoque.Quantidade;
@@ -36,9 +41,9 @@ import jakarta.validation.Valid;
 
 /**
  * Telas de campo da execução (RF15 a RF18, RNF06), sob {@code /campo} (TECNICO_CAMPO, PROJETISTA e
- * ADMINISTRADOR): as ordens abertas do técnico logado e a tela da ordem, que mostra só o passo da
- * situação atual do projeto (Figura 5): apontar e concluir a instalação, medir, registrar a
- * correção, colher o aceite ou registrar e resolver a pendência.
+ * ADMINISTRADOR): as ordens abertas do técnico logado (ou de todas as equipes, para quem acompanha) e
+ * a tela da ordem, que mostra só o passo da situação atual do projeto (Figura 5): apontar e concluir
+ * a instalação, medir, registrar a correção, colher o aceite ou registrar e resolver a pendência.
  *
  * <p>Um técnico só abre as ordens em que está escalado; quem confere é o
  * {@code OrdemServicoService}.
@@ -74,12 +79,31 @@ public class OrdemServicoController {
         return TipoPendencia.values();
     }
 
-    /** Ordens abertas do técnico logado, em cartões grandes (RNF06). */
+    /**
+     * Para o técnico de campo, as ordens abertas em que ele está, em cartões grandes (RNF06). Para
+     * quem acompanha a execução (projetista e administrador), as ordens de todas as equipes, com
+     * filtro por técnico e a opção de ver as concluídas (RF15).
+     *
+     * @param tecnico    só as ordens deste técnico; vazio traz todas
+     * @param concluidas inclui as ordens já concluídas
+     */
     @GetMapping("/minhas-os")
-    public String minhasOrdens(Model model) {
-        List<OrdemServico> ordens = usuarioLogado.idAtual()
-                .map(ordemServicoService::abertasDoTecnico)
-                .orElse(List.of());
+    public String minhasOrdens(@RequestParam(required = false) Long tecnico,
+            @RequestParam(defaultValue = "false") boolean concluidas, Authentication autenticacao, Model model) {
+        boolean ehTecnico = autenticacao.getAuthorities().stream()
+                .anyMatch(authority -> Perfil.TECNICO_CAMPO.name().equals(authority.getAuthority()));
+        List<OrdemServico> ordens;
+        if (ehTecnico) {
+            ordens = usuarioLogado.idAtual()
+                    .map(ordemServicoService::abertasDoTecnico)
+                    .orElse(List.of());
+        } else {
+            ordens = ordemServicoService.acompanhamento(tecnico, concluidas);
+            model.addAttribute("tecnicos", ordemServicoService.tecnicosDisponiveis());
+            model.addAttribute("tecnicoEscolhido", tecnico);
+            model.addAttribute("concluidas", concluidas);
+        }
+        model.addAttribute("acompanhamento", !ehTecnico);
         model.addAttribute("ordens", ordens);
         model.addAttribute("hoje", LocalDate.now(clock));
         return "campo/minhasOrdens";
@@ -132,8 +156,14 @@ public class OrdemServicoController {
 
     @PostMapping("/ordens/{id:\\d+}/conclusao")
     public String concluirInstalacao(@PathVariable Long id, RedirectAttributes redirect) {
-        ordemServicoService.concluirInstalacao(id);
-        redirect.addFlashAttribute("sucesso", "Instalação concluída. Agora meça a pressão e a vazão.");
+        OrdemServico ordem = ordemServicoService.concluirInstalacao(id);
+        List<OrdemServico> faltando = ordemServicoService.instalacaoPendente(ordem.getProjeto().getId());
+        if (faltando.isEmpty()) {
+            redirect.addFlashAttribute("sucesso", "Instalação concluída. Agora meça a pressão e a vazão.");
+        } else {
+            redirect.addFlashAttribute("sucesso", "Instalação da OS " + ordem.getNumero() + " concluída. A medição "
+                    + "começa quando " + descrever(faltando) + " também concluir.");
+        }
         return paginaDaOrdem(id);
     }
 
@@ -214,9 +244,15 @@ public class OrdemServicoController {
         Projeto projeto = ordem.getProjeto();
         SituacaoProjeto situacao = projeto.getSituacao();
         boolean aberta = ordem.getDataConclusao() == null;
+        boolean instalando = aberta && situacao == SituacaoProjeto.EXECUTANDO_INSTALACAO;
+        boolean minhaParteConcluida = ordem.getInstalacaoConcluidaEm() != null;
         model.addAttribute("ordem", ordem);
         model.addAttribute("projeto", projeto);
-        model.addAttribute("executando", aberta && situacao == SituacaoProjeto.EXECUTANDO_INSTALACAO);
+        model.addAttribute("executando", instalando && !minhaParteConcluida);
+        model.addAttribute("aguardandoOutras", instalando && minhaParteConcluida);
+        if (instalando && minhaParteConcluida) {
+            model.addAttribute("faltando", ordemServicoService.instalacaoPendente(projeto.getId()));
+        }
         model.addAttribute("validando", aberta && situacao == SituacaoProjeto.VALIDANDO_MEDICAO);
         model.addAttribute("corrigindo", aberta && situacao == SituacaoProjeto.CORRIGINDO_INSTALACAO);
         model.addAttribute("colhendo", aberta && situacao == SituacaoProjeto.COLHENDO_ACEITE);
@@ -240,6 +276,18 @@ public class OrdemServicoController {
         adicionarSeFaltar(model, "aceiteForm", new AceiteForm());
         adicionarSeFaltar(model, "pendenciaForm", new PendenciaForm());
         return TELA_ORDEM;
+    }
+
+    /** "a OS 2 (Tânia Técnica)" ou "as OS 2 e 3". */
+    private static String descrever(List<OrdemServico> ordens) {
+        if (ordens.size() == 1) {
+            OrdemServico ordem = ordens.get(0);
+            return "a OS " + ordem.getNumero() + " ("
+                    + ordem.getTecnicos().stream().map(Usuario::getNome).collect(Collectors.joining(", ")) + ")";
+        }
+        List<String> numeros = ordens.stream().map(o -> String.valueOf(o.getNumero())).toList();
+        return "as OS " + String.join(", ", numeros.subList(0, numeros.size() - 1)) + " e "
+                + numeros.get(numeros.size() - 1);
     }
 
     private static void adicionarSeFaltar(Model model, String nome, Object form) {

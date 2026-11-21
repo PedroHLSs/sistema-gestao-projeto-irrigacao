@@ -1,6 +1,8 @@
 package br.edu.iftm.irrigacao.apresentacao.web;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -14,6 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
 import br.edu.iftm.irrigacao.dominio.estoque.ListaTecnicaService;
+import br.edu.iftm.irrigacao.dominio.estoque.Quantidade;
 import br.edu.iftm.irrigacao.dominio.projeto.DimensionamentoService;
 import br.edu.iftm.irrigacao.dominio.projeto.LevantamentoService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
@@ -78,6 +81,7 @@ public class EngenhariaController {
         }
         ItemProjeto item = listaTecnicaService.adicionar(id, form.getMaterialId(), form.getQuantidadePrevista());
         redirect.addFlashAttribute("sucesso", item.getMaterial().getCodigo() + " adicionado à lista técnica.");
+        avisarSePassaDoEstoque(item, redirect);
         return paginaDaEngenharia(id);
     }
 
@@ -91,6 +95,7 @@ public class EngenhariaController {
         }
         ItemProjeto item = listaTecnicaService.alterarQuantidade(id, itemId, form.getQuantidade());
         redirect.addFlashAttribute("sucesso", "Quantidade de " + item.getMaterial().getCodigo() + " alterada.");
+        avisarSePassaDoEstoque(item, redirect);
         return paginaDaEngenharia(id);
     }
 
@@ -119,8 +124,26 @@ public class EngenhariaController {
         model.addAttribute("emLevantamento", emLevantamento);
         model.addAttribute("liberada", emLevantamento && faltantes.isEmpty());
         model.addAttribute("itens", itens);
+        model.addAttribute("faltasEmEstoque", itens.stream()
+                .collect(Collectors.toMap(ItemProjeto::getId, listaTecnicaService::faltaEmEstoque)));
         model.addAttribute("total", listaTecnicaService.totalEstimado(itens));
         return TELA;
+    }
+
+    /**
+     * Quantidade acima do disponível em estoque não é recusada, só avisada: o que faltar vira
+     * faltante para cotação no orçamento (RF05, RF08).
+     */
+    private void avisarSePassaDoEstoque(ItemProjeto item, RedirectAttributes redirect) {
+        BigDecimal falta = listaTecnicaService.faltaEmEstoque(item);
+        if (falta.signum() == 0) {
+            return;
+        }
+        String unidade = " " + item.getMaterial().getUnidade();
+        redirect.addFlashAttribute("aviso", item.getMaterial().getCodigo() + ": a quantidade prevista ("
+                + Quantidade.formatar(item.getQuantidadePrevista()) + unidade + ") passa do disponível em estoque ("
+                + Quantidade.formatar(item.getMaterial().getDisponivel()) + unidade + "). Faltam "
+                + Quantidade.formatar(falta) + unidade + ", que entram nos faltantes para cotação no orçamento.");
     }
 
     private static String paginaDaEngenharia(Long id) {

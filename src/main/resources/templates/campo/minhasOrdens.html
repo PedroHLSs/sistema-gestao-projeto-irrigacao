@@ -1,39 +1,80 @@
 <!DOCTYPE html>
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 
-<!-- Ordens de serviço abertas do técnico logado (RF15, RNF06): um cartão grande por ordem -->
-<head th:replace="~{fragments/head :: head('Minhas OS')}">
+<!--
+    Ordens de serviço (RF15, RNF06). O técnico de campo vê as abertas em que está, em cartões grandes.
+    Quem acompanha a execução (projetista e administrador) vê as de todas as equipes, com filtro.
+-->
+<head th:replace="~{fragments/head :: head(${acompanhamento} ? 'Ordens de serviço' : 'Minhas OS')}">
 </head>
 
 <body>
     <header th:replace="~{fragments/header :: header}"></header>
 
-    <main class="container py-3 tela-campo">
+    <main class="container py-3" th:classappend="${acompanhamento} ? '' : 'tela-campo'">
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
-        <h1 class="page-title mb-3">Minhas OS</h1>
+        <h1 class="page-title mb-3" th:text="${acompanhamento} ? 'Ordens de serviço' : 'Minhas OS'">Minhas OS</h1>
 
-        <p th:if="${#lists.isEmpty(ordens)}" class="text-muted">Nenhuma ordem de serviço aberta para você.</p>
+        <form th:if="${acompanhamento}" th:action="@{/campo/minhas-os}" method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-sm-auto">
+                <label for="tecnico" class="form-label">Técnico</label>
+                <select id="tecnico" name="tecnico" class="form-select">
+                    <option value="">Todos</option>
+                    <option th:each="t : ${tecnicos}" th:value="${t.id}" th:text="${t.nome}"
+                        th:selected="${tecnicoEscolhido != null and tecnicoEscolhido == t.id}">Técnico</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-auto">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="concluidas" name="concluidas" value="true"
+                        th:checked="${concluidas}">
+                    <label class="form-check-label" for="concluidas">Mostrar as concluídas</label>
+                </div>
+            </div>
+            <div class="col-12 col-sm-auto">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtrar
+                </button>
+            </div>
+        </form>
 
-        <div th:each="o : ${ordens}" class="card shadow-sm mb-3 cartao-os"
-            th:classappend="${o.dataProgramada.isBefore(hoje)} ? 'os-atrasada'">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                    <h2 class="h5 mb-0" th:text="|OS ${o.numero} · ${o.projeto.codigo}|">OS 1 · PRJ-2026-0001</h2>
-                    <span th:replace="~{fragments/situacao :: badge(${o.projeto.situacao})}"></span>
+        <p th:if="${#lists.isEmpty(ordens)}" class="text-muted"
+            th:text="${acompanhamento} ? 'Nenhuma ordem de serviço com esse filtro.' : 'Nenhuma ordem de serviço aberta para você.'">
+            Nenhuma ordem de serviço aberta para você.</p>
+
+        <div th:classappend="${acompanhamento} ? 'row row-cols-1 row-cols-lg-2 g-3' : ''">
+            <div th:each="o : ${ordens}" th:class="${acompanhamento} ? 'col' : ''">
+                <div class="card shadow-sm cartao-os"
+                    th:classappend="${(acompanhamento ? 'h-100' : 'mb-3') + (o.dataConclusao == null and o.dataProgramada.isBefore(hoje) ? ' os-atrasada' : '')}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                            <h2 class="h5 mb-0" th:text="|OS ${o.numero} · ${o.projeto.codigo}|">OS 1 · PRJ-2026-0001</h2>
+                            <span th:replace="~{fragments/situacao :: badge(${o.projeto.situacao})}"></span>
+                        </div>
+                        <div class="fw-semibold" th:text="${o.projeto.propriedade.produtor.nome}">Produtor</div>
+                        <div class="text-muted" th:text="|${o.projeto.propriedade.nome}, ${o.projeto.propriedade.municipio}|">
+                            Fazenda, Município</div>
+                        <div th:if="${acompanhamento}" class="small mt-1">
+                            <i class="fas fa-users me-1"></i><span th:text="${#strings.listJoin(o.tecnicos.![nome], ', ')}">Técnicos</span>
+                        </div>
+                        <div class="mt-2">
+                            <i class="fas fa-calendar-day me-1"></i>
+                            <span th:text="${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}">16/11/2026</span>
+                            <th:block th:if="${o.dataConclusao == null}">
+                                <span th:if="${o.dataProgramada.equals(hoje)}" class="badge text-bg-primary ms-1">Hoje</span>
+                                <span th:if="${o.dataProgramada.isBefore(hoje)}" class="badge text-bg-danger ms-1">Atrasada</span>
+                                <span th:if="${o.instalacaoConcluidaEm != null}" class="badge text-bg-secondary ms-1">Instalação concluída</span>
+                            </th:block>
+                            <span th:if="${o.dataConclusao != null}" class="badge text-bg-success ms-1"
+                                th:text="|Concluída em ${#temporals.format(o.dataConclusao, 'dd/MM/yyyy')}|">Concluída</span>
+                        </div>
+                        <a th:href="@{/campo/ordens/{id}(id=${o.id})}" class="btn btn-primary w-100 mt-3 stretched-link"
+                            th:classappend="${acompanhamento} ? '' : 'btn-lg'">
+                            <i class="fas fa-screwdriver-wrench me-2"></i>Abrir ordem
+                        </a>
+                    </div>
                 </div>
-                <div class="fw-semibold" th:text="${o.projeto.propriedade.produtor.nome}">Produtor</div>
-                <div class="text-muted" th:text="|${o.projeto.propriedade.nome}, ${o.projeto.propriedade.municipio}|">
-                    Fazenda, Município</div>
-                <div class="mt-2">
-                    <i class="fas fa-calendar-day me-1"></i>
-                    <span th:text="${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}">16/11/2026</span>
-                    <span th:if="${o.dataProgramada.equals(hoje)}" class="badge text-bg-primary ms-1">Hoje</span>
-                    <span th:if="${o.dataProgramada.isBefore(hoje)}" class="badge text-bg-danger ms-1">Atrasada</span>
-                </div>
-                <a th:href="@{/campo/ordens/{id}(id=${o.id})}" class="btn btn-primary btn-lg w-100 mt-3 stretched-link">
-                    <i class="fas fa-screwdriver-wrench me-2"></i>Abrir ordem
-                </a>
             </div>
         </div>
     </main>

@@ -3,7 +3,11 @@ package br.edu.iftm.irrigacao.dominio.projeto.impl;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,13 +15,20 @@ import org.springframework.transaction.annotation.Transactional;
 import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
 import br.edu.iftm.irrigacao.dominio.comercial.PropostaService;
 import br.edu.iftm.irrigacao.dominio.comercial.SituacaoProposta;
+import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
+import br.edu.iftm.irrigacao.dominio.estoque.ProgressoSeparacao;
 import br.edu.iftm.irrigacao.dominio.estoque.SituacaoCotacao;
+import br.edu.iftm.irrigacao.dominio.projeto.FilaEngenharia;
+import br.edu.iftm.irrigacao.dominio.projeto.FilaEstoque;
+import br.edu.iftm.irrigacao.dominio.projeto.FilaEstoque.SeparacaoNaFila;
 import br.edu.iftm.irrigacao.dominio.projeto.OrcadoRealizadoService;
 import br.edu.iftm.irrigacao.dominio.projeto.PainelInicial;
 import br.edu.iftm.irrigacao.dominio.projeto.PainelInicial.ProjetosNaSituacao;
 import br.edu.iftm.irrigacao.dominio.projeto.PainelService;
+import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 import br.edu.iftm.irrigacao.persistencia.CotacaoRepository;
+import br.edu.iftm.irrigacao.persistencia.ItemProjetoRepository;
 import br.edu.iftm.irrigacao.persistencia.LevantamentoRepository;
 import br.edu.iftm.irrigacao.persistencia.OrdemServicoRepository;
 import br.edu.iftm.irrigacao.persistencia.PendenciaRepository;
@@ -36,6 +47,7 @@ public class PainelServiceImpl implements PainelService {
     private final LevantamentoRepository levantamentoRepository;
     private final CotacaoRepository cotacaoRepository;
     private final OrdemServicoRepository ordemRepository;
+    private final ItemProjetoRepository itemProjetoRepository;
     private final PropostaService propostaService;
     private final OrcadoRealizadoService orcadoRealizadoService;
     private final Clock clock;
@@ -43,13 +55,14 @@ public class PainelServiceImpl implements PainelService {
     public PainelServiceImpl(ProjetoRepository projetoRepository, PropostaRepository propostaRepository,
             PendenciaRepository pendenciaRepository, LevantamentoRepository levantamentoRepository,
             CotacaoRepository cotacaoRepository, OrdemServicoRepository ordemRepository,
-            PropostaService propostaService, OrcadoRealizadoService orcadoRealizadoService, Clock clock) {
+            ItemProjetoRepository itemProjetoRepository, PropostaService propostaService, OrcadoRealizadoService orcadoRealizadoService, Clock clock) {
         this.projetoRepository = projetoRepository;
         this.propostaRepository = propostaRepository;
         this.pendenciaRepository = pendenciaRepository;
         this.levantamentoRepository = levantamentoRepository;
         this.cotacaoRepository = cotacaoRepository;
         this.ordemRepository = ordemRepository;
+        this.itemProjetoRepository = itemProjetoRepository;
         this.propostaService = propostaService;
         this.orcadoRealizadoService = orcadoRealizadoService;
         this.clock = clock;
@@ -72,6 +85,51 @@ public class PainelServiceImpl implements PainelService {
         };
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FilaEngenharia filaEngenharia() {
+        return new FilaEngenharia(levantamentoRepository.listarCompletosNaSituacao(SituacaoProjeto.EM_LEVANTAMENTO),
+                projetoRepository.pesquisar(EnumSet.of(SituacaoProjeto.PROGRAMANDO_EXECUCAO), "%"),
+                projetoRepository.pesquisar(EnumSet.of(SituacaoProjeto.EXECUTANDO_INSTALACAO), "%"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FilaEstoque filaEstoque() {
+        List<Projeto> aSeparar = projetoRepository.pesquisar(EnumSet.of(SituacaoProjeto.PREPARANDO_MATERIAL), "%");
+        // Execução liberada e antes do aceite: a separação continua aberta (separação parcial, G5)
+        EnumSet<SituacaoProjeto> emExecucao = EnumSet.noneOf(SituacaoProjeto.class);
+        for (SituacaoProjeto situacao : SituacaoProjeto.values()) {
+            if (situacao.isMaterialEmAndamento() && situacao != SituacaoProjeto.PREPARANDO_MATERIAL) {
+                emExecucao.add(situacao);
+            }
+        }
+        List<Projeto> liberados = projetoRepository.pesquisar(emExecucao, "%");
+        Map<Long, List<ItemProjeto>> itens = itensDosProjetos(Stream.concat(aSeparar.stream(), liberados.stream())
+                .map(Projeto::getId)
+                .toList());
+        List<SeparacaoNaFila> aContinuar = liberados.stream()
+                .map(projeto -> separacao(projeto, itens))
+                .filter(separacao -> !separacao.progresso().isCompleta())
+                .toList();
+        List<Projeto> sobras = projetoRepository.pesquisar(EnumSet.of(SituacaoProjeto.FINALIZANDO_EXECUCAO), "%").stream()
+                .filter(projeto -> !projeto.isSobrasDevolvidas())
+                .toList();
+        return new FilaEstoque(aSeparar.stream().map(projeto -> separacao(projeto, itens)).toList(), aContinuar, sobras);
+    }
+
+    private Map<Long, List<ItemProjeto>> itensDosProjetos(List<Long> projetoIds) {
+        if (projetoIds.isEmpty()) {
+            return Map.of();
+        }
+        return itemProjetoRepository.listarDosProjetos(projetoIds).stream()
+                .collect(Collectors.groupingBy(item -> item.getProjeto().getId()));
+    }
+
+    private static SeparacaoNaFila separacao(Projeto projeto, Map<Long, List<ItemProjeto>> itens) {
+        return new SeparacaoNaFila(projeto, new ProgressoSeparacao(itens.getOrDefault(projeto.getId(), List.of())));
+    }
+
     private PainelInicial.Vendedor vendedor(Long usuarioId) {
         if (usuarioId == null) {
             return new PainelInicial.Vendedor(List.of(), 0, 0);
@@ -91,9 +149,9 @@ public class PainelServiceImpl implements PainelService {
     }
 
     private PainelInicial.Estoque estoque() {
+        FilaEstoque fila = filaEstoque();
         return new PainelInicial.Estoque(cotacaoRepository.contarNaSituacao(SituacaoCotacao.REQUISITADA),
-                projetoRepository.contarSemSeparacaoConferida(SituacaoProjeto.PREPARANDO_MATERIAL),
-                projetoRepository.contarPorSobras(SituacaoProjeto.FINALIZANDO_EXECUCAO, false));
+                fila.separacoesPendentes(), fila.sobrasAReceber().size());
     }
 
     private PainelInicial.Tecnico tecnico(Long usuarioId) {

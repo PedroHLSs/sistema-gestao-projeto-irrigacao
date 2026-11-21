@@ -24,8 +24,13 @@ public interface SobrasService {
      * Sem nenhum item com sobra, a chamada com o mapa vazio confirma "sem sobras". Nos dois casos o
      * projeto fica com {@code sobrasDevolvidas = true}.
      *
+     * <p>Em projeto que começou com a separação parcial, o que ficou reservado e não chegou a sair do
+     * estoque (nem separado nem apontado) volta ao disponível no mesmo momento, por
+     * {@link EstoqueService#liberarReservaPendente} (RF07).
+     *
      * @param devolvidas quantidade devolvida por id do item da lista técnica; obrigatória para cada
      *                   item com sobra
+     * @return quantos materiais tinham reserva pendente, que voltou ao disponível
      */
-    void devolver(Long projetoId, Map<Long, BigDecimal> devolvidas);
+    int devolver(Long projetoId, Map<Long, BigDecimal> devolvidas);
 }

@@ -22,24 +22,35 @@
         </div>
 
         <form th:action="@{/projetos}" method="get" class="row g-2 mb-3" role="search">
+            <!-- Situações agrupadas pela fase, na ordem do fluxo (FaseProjeto) -->
             <div class="col-12 col-md-4 col-lg-3">
                 <label for="situacao" class="visually-hidden">Situação</label>
                 <select id="situacao" name="situacao" class="form-select">
                     <option value="">Todas as situações</option>
-                    <option th:each="s : ${situacoes}" th:value="${s}" th:text="${s.rotulo}"
-                        th:selected="${s == situacao}">Situação</option>
+                    <optgroup th:each="f : ${fases}" th:label="${f.rotulo}" label="Levantamento">
+                        <option th:each="s : ${f.situacoes}" th:value="${s}" th:text="${s.rotulo}"
+                            th:selected="${s == situacao}">Situação</option>
+                    </optgroup>
                 </select>
             </div>
-            <div class="col-12 col-md-5 col-lg-5">
+            <div class="col-12 col-md-4 col-lg-4">
                 <label for="busca" class="visually-hidden">Código ou produtor</label>
                 <input type="search" id="busca" name="busca" class="form-control" th:value="${busca}"
                     placeholder="Código ou nome do produtor">
+            </div>
+            <!-- O próximo passo do projeto é de quem está vendo a lista -->
+            <div class="col-auto d-flex align-items-center">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="meus" name="meus" value="true"
+                        th:checked="${meus}">
+                    <label class="form-check-label" for="meus">Esperando por mim</label>
+                </div>
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-outline-primary">
                     <i class="fas fa-filter me-1"></i>Filtrar
                 </button>
-                <a th:if="${situacao != null or (busca != null and !#strings.isEmpty(busca))}" th:href="@{/projetos}"
+                <a th:if="${situacao != null or meus or (busca != null and !#strings.isEmpty(busca))}" th:href="@{/projetos}"
                     class="btn btn-link">Limpar</a>
             </div>
         </form>
@@ -49,11 +60,11 @@
                 <thead>
                     <tr>
                         <th scope="col">Código</th>
-                        <th scope="col">Produtor</th>
-                        <th scope="col">Propriedade</th>
+                        <th scope="col">Produtor e propriedade</th>
                         <th scope="col">Responsável</th>
                         <th scope="col">Abertura</th>
                         <th scope="col">Situação</th>
+                        <th scope="col">Próximo passo</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -61,17 +72,29 @@
                         <td class="text-nowrap">
                             <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
                         </td>
-                        <td th:text="${p.propriedade.produtor.nome}">Produtor</td>
                         <td>
-                            <span th:text="${p.propriedade.nome}">Fazenda</span>
-                            <div class="small text-muted" th:text="${p.propriedade.municipio}">Município</div>
+                            <div th:text="${p.propriedade.produtor.nome}">Produtor</div>
+                            <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda, Município</div>
                         </td>
                         <td th:text="${p.responsavel.nome}">Responsável</td>
                         <td class="text-nowrap" th:text="${#temporals.format(p.dataAbertura, 'dd/MM/yyyy')}">16/11/2026</td>
                         <td><span th:replace="~{fragments/situacao :: badge(${p.situacao})}"></span></td>
+                        <!-- O mesmo próximo passo do topo da página do projeto (ProximoPasso) -->
+                        <td th:with="passo=${passos[p.id]}">
+                            <span th:if="${passo == null}" class="text-muted">—</span>
+                            <th:block th:if="${passo != null}">
+                                <div th:text="${#strings.capitalize(passo.titulo)}">Separar o material e liberar a execução</div>
+                                <a th:if="${passo.acao != null}" th:href="@{${passo.acao.url}}" class="small fw-semibold"
+                                    th:text="${passo.acao.rotulo}">Abrir a separação</a>
+                                <div th:if="${passo.acao == null}" class="small text-muted"
+                                    th:text="|Aguardando ${passo.responsavel}|">Aguardando o almoxarifado</div>
+                            </th:block>
+                        </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(projetos)}">
-                        <td colspan="6" class="text-center text-muted py-4">Nenhum projeto encontrado.</td>
+                        <td colspan="6" class="text-center text-muted py-4"
+                            th:text="${meus} ? 'Nenhum projeto esperando por você agora.' : 'Nenhum projeto encontrado.'">
+                            Nenhum projeto encontrado.</td>
                     </tr>
                 </tbody>
             </table>

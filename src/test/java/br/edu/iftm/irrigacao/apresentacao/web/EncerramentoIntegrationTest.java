@@ -237,8 +237,8 @@ class EncerramentoIntegrationTest {
         for (ItemProjeto item : listaTecnicaService.listar(id)) {
             separadas.put(item.getId(), item.getQuantidadePrevista());
         }
-        separacaoService.registrar(id, separadas);
-        separacaoService.conferir(id);
+        separacaoService.separar(id, separadas);
+        separacaoService.liberarParaExecucao(id);
         return id;
     }
 
@@ -394,8 +394,18 @@ class EncerramentoIntegrationTest {
                     .with(csrf()).with(logado(login)))
                     .andExpect(status().isForbidden());
         }
+        // Na página do projeto, a aba Encerramento leva à liberação, só para o financeiro
+        String liberacao = "href=\"/financeiro/liberacoes/" + id + "\"";
+        mockMvc.perform(get("/projetos/{id}", id).with(logado("fabio")))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.ENCERRAMENTO))
+                .andExpect(content().string(containsString("Liberação do faturamento")))
+                .andExpect(content().string(containsString(liberacao)));
+        mockMvc.perform(get("/projetos/{id}", id).with(logado("diana")))
+                .andExpect(content().string(containsString("Liberação do faturamento")))
+                .andExpect(content().string(not(containsString(liberacao))));
         mockMvc.perform(get("/financeiro/liberacoes/{id}", id).with(logado("fabio")))
                 .andExpect(status().isOk())
+                .andExpect(TrilhaDeNavegacao.doProjeto(id, "Liberar faturamento"))
                 .andExpect(content().string(containsString("Liberar e encerrar o projeto")));
         assertThat(projeto(id).getSituacao()).isEqualTo(SituacaoProjeto.FINALIZANDO_EXECUCAO);
     }
@@ -412,6 +422,9 @@ class EncerramentoIntegrationTest {
         assertThat(ultimoDia.fim()).isEqualTo(LocalDate.of(2027, 11, 16));
         assertThat(ultimoDia.vigente()).isTrue();
         mockMvc.perform(get("/projetos/{id}", id).with(logado("ana")))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.ENCERRAMENTO))
+                // Encerrado, não há próximo passo
+                .andExpect(content().string(not(containsString("Próximo passo:"))))
                 .andExpect(content().string(containsString("Até 16/11/2027")))
                 .andExpect(content().string(containsString(">Vigente</span>")))
                 .andExpect(content().string(not(containsString(">Vencida</span>"))));

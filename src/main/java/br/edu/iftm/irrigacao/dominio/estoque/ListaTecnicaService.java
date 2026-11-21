@@ -22,6 +22,13 @@ public interface ListaTecnicaService {
     BigDecimal totalEstimado(List<ItemProjeto> itens);
 
     /**
+     * Quanto da quantidade prevista o disponível em estoque do material (saldo menos reservado) não
+     * cobre; zero quando cobre (RF05, RF07). Serve só de aviso ao projetista: o que faltar vira
+     * faltante para cotação no orçamento (RF08, G4) e não impede a lista técnica.
+     */
+    BigDecimal faltaEmEstoque(ItemProjeto item);
+
+    /**
      * @throws br.edu.iftm.irrigacao.dominio.RegraNegocioException se o material já está na lista,
      *                                                             a quantidade é inválida ou a
      *                                                             engenharia não está liberada

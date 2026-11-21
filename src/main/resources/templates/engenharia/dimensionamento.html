@@ -9,12 +9,12 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, 'Dimensionamento e lista técnica')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <h1 class="page-title mb-2">Dimensionamento e lista técnica</h1>
         <p class="mb-3">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
             · <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda</span>
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </p>
@@ -114,12 +114,20 @@
                     <div class="col-7 col-md-3">
                         <label for="quantidadePrevista" class="form-label">Quantidade prevista</label>
                         <input type="number" step="0.001" min="0.001" class="form-control" th:field="*{quantidadePrevista}"
-                            th:errorclass="is-invalid">
+                            th:errorclass="is-invalid" data-aviso-estoque="avisoEstoqueNovo">
                         <div class="invalid-feedback" th:errors="*{quantidadePrevista}">Erro da quantidade</div>
                     </div>
                     <div class="col-5 col-md-2">
                         <label class="form-label d-block">&nbsp;</label>
                         <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus me-1"></i>Adicionar</button>
+                    </div>
+                    <!-- Preenchido pelo app.js com o disponível do material escolhido na busca -->
+                    <div class="col-12" id="avisoEstoqueNovo" role="status" hidden>
+                        <div class="alert alert-warning small py-2 px-3 mb-0">
+                            <i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i><span
+                                data-aviso-texto>Acima do estoque.</span>
+                            Dá para adicionar assim mesmo: o que faltar entra nos faltantes para cotação no orçamento.
+                        </div>
                     </div>
                 </form>
 
@@ -146,7 +154,7 @@
                                         <input type="number" name="quantidade" step="0.001" min="0.001" required
                                             class="form-control form-control-sm campo-quantidade"
                                             th:value="${i.quantidadePrevista.stripTrailingZeros().toPlainString()}"
-                                            th:attr="aria-label=|Quantidade de ${i.material.codigo}|">
+                                            th:attr="aria-label=|Quantidade de ${i.material.codigo}|, data-aviso-estoque=|avisoEstoque${i.id}|, data-disponivel=${i.material.disponivel.stripTrailingZeros().toPlainString()}, data-unidade=${i.material.unidade}">
                                         <button type="submit" class="btn btn-sm btn-outline-primary" title="Alterar quantidade">
                                             <i class="fas fa-check"></i><span class="visually-hidden">Alterar</span>
                                         </button>
@@ -154,6 +162,12 @@
                                     <span th:unless="${liberada}"
                                         th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadePrevista)}">10</span>
                                     <span class="small text-muted" th:text="${i.material.unidade}">barra</span>
+                                    <!-- Quantidade acima do disponível em estoque: aviso, sem bloquear (o app.js atualiza ao digitar) -->
+                                    <div th:if="${liberada}" th:id="|avisoEstoque${i.id}|" role="status"
+                                        class="small text-warning-emphasis mt-1" th:hidden="${faltasEmEstoque[i.id].signum() == 0}">
+                                        <i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i><span data-aviso-texto
+                                            th:text="${faltasEmEstoque[i.id].signum() > 0} ? |Acima do estoque (disponível: ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.material.disponivel)} ${i.material.unidade}). Faltam ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(faltasEmEstoque[i.id])} ${i.material.unidade}.| : ''">Acima do estoque (disponível: 50 barra). Faltam 30 barra.</span>
+                                    </div>
                                 </td>
                                 <td class="text-end text-nowrap"
                                     th:text="${i.material.precoVenda != null} ? |R$ ${#numbers.formatDecimal(i.material.precoVenda, 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 62,90</td>

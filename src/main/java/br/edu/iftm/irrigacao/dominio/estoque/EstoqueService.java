@@ -55,6 +55,37 @@ public interface EstoqueService {
     MovimentacaoEstoque devolver(Long materialId, Long projetoId, BigDecimal quantidade);
 
     /**
+     * SAIDA_PROJETO do material que vai para o projeto depois da liberação da execução (RF14, RF16):
+     * usa primeiro o que já está reservado para o projeto e ainda não saiu; o que passar disso é
+     * reservado do disponível (RESERVA) antes de sair.
+     *
+     * @throws SaldoInsuficienteException se o que passa da reserva do projeto passar do disponível
+     */
+    void baixarParaProjeto(Long materialId, Long projetoId, BigDecimal quantidade);
+
+    /**
+     * Devolve ao disponível o que ficou reservado para o projeto e não saiu do estoque (RF07): em
+     * projeto que começou com a separação parcial, o que não chegou a ser separado nem usado. Grava
+     * uma RESERVA com a quantidade negativa, sem mudar o saldo.
+     *
+     * @return a quantidade liberada, zero se não havia reserva pendente
+     */
+    BigDecimal liberarReservaPendente(Long materialId, Long projetoId);
+
+    /**
+     * Deixa baixado do estoque exatamente o que o projeto apontou além do separado (RF16, RF07): o
+     * separado já saiu na liberação da execução ou na própria separação, e o que o técnico usou a mais
+     * sai agora ({@link #baixarParaProjeto}). Se um lançamento é excluído e o excesso diminui, a
+     * diferença volta como DEVOLUCAO. Chamado a cada apontamento de material e a cada exclusão,
+     * durante a instalação, com a linha do item já travada.
+     *
+     * @param apontada  quantidade apontada do item, já com o lançamento novo ou sem o excluído
+     * @param separada  quantidade separada do item
+     * @throws SaldoInsuficienteException se o excesso passar do disponível do material
+     */
+    void acertarBaixaAlemDoSeparado(Long materialId, Long projetoId, BigDecimal apontada, BigDecimal separada);
+
+    /**
      * Para cada item da lista técnica do projeto: prevista, disponível, já reservada para o projeto e
      * faltante. Uma consulta só.
      */

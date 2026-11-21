@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 
-<!-- Propostas em andamento (RF09 a RF11). O controller vence as que passaram da validade antes de listar. -->
+<!--
+    Propostas (RF09 a RF11), em andamento por padrão e filtradas por situação. O controller vence as que
+    passaram da validade antes de listar.
+-->
 <head th:replace="~{fragments/head :: head('Propostas')}">
 </head>
 
@@ -12,6 +15,26 @@
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <h1 class="page-title">Propostas</h1>
+
+        <form th:action="@{/comercial/propostas}" method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-sm-auto">
+                <label for="filtro" class="form-label">Situação</label>
+                <select id="filtro" name="filtro" class="form-select">
+                    <option value="" th:selected="${filtro == ''}">Em andamento</option>
+                    <option th:each="s : ${situacoes}" th:value="${s.name()}" th:text="${s.rotulo}"
+                        th:selected="${filtro == s.name()}">Aprovada</option>
+                    <option value="TODAS" th:selected="${filtro == 'TODAS'}">Todas</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-auto">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtrar
+                </button>
+            </div>
+            <div class="col-12 col-sm text-sm-end form-text"
+                th:text="${filtro == ''} ? 'Em andamento: em elaboração, aguardando a diretoria e enviadas.' : |${#lists.size(propostas)} proposta(s)|">
+                Em andamento: em elaboração, aguardando a diretoria e enviadas.</div>
+        </form>
 
         <div class="table-responsive bg-white border rounded shadow-sm">
             <table class="table table-hover align-middle mb-0">
@@ -44,7 +67,9 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(propostas)}">
-                        <td colspan="6" class="text-center text-muted py-4">Nenhuma proposta em andamento.</td>
+                        <td colspan="6" class="text-center text-muted py-4"
+                            th:text="${filtro == ''} ? 'Nenhuma proposta em andamento.' : 'Nenhuma proposta nesta situação.'">
+                            Nenhuma proposta em andamento.</td>
                     </tr>
                 </tbody>
             </table>

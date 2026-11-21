@@ -9,12 +9,12 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-3 tela-campo">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, 'Levantamento')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <h1 class="page-title mb-2">Levantamento</h1>
         <p class="mb-3">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span><br>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span><br>
             <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span>
         </p>
 

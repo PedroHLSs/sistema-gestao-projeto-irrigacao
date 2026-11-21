@@ -66,7 +66,7 @@ class ApontamentoRepositoryTest {
         ajudante = em.persist(DadosTeste.usuario("ajudante", Perfil.TECNICO_CAMPO));
         Material tubo = em.persist(DadosTeste.material("TB-21", "Tubo PVC 50 mm", "100", "0"));
 
-        ordemServico = em.persist(new OrdemServico(null, projeto, 1, LocalDate.of(2026, 3, 20), null,
+        ordemServico = em.persist(new OrdemServico(null, projeto, 1, LocalDate.of(2026, 3, 20), null, null,
                 List.of(tecnico, ajudante)));
         em.persist(new ApontamentoHoras(null, ordemServico, MANHA, tecnico, new BigDecimal("6.50"),
                 new BigDecimal("45.00")));

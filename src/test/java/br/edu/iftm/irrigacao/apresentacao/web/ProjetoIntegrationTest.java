@@ -163,6 +163,7 @@ class ProjetoIntegrationTest {
         // Abertura
         mockMvc.perform(get("/comercial/projetos/novo").param("propriedadeId", sitio.getId().toString()).with(anaLogada()))
                 .andExpect(status().isOk())
+                .andExpect(TrilhaDeNavegacao.daSecao("/projetos", "Projetos", "Abrir projeto"))
                 .andExpect(view().name("comercial/abrirProjeto"))
                 .andExpect(model().attribute("abertura", hasProperty("produtorId", is(maria.getId()))))
                 .andExpect(model().attribute("abertura", hasProperty("propriedadeId", is(sitio.getId()))));
@@ -199,6 +200,29 @@ class ProjetoIntegrationTest {
                 .andExpect(content().string(containsString("Reagendar visita")))
                 .andExpect(content().string(containsString("Lista técnica")))
                 .andExpect(content().string(containsString("Encerramento")));
+
+        // Abre na aba da fase atual, e só nela: sem levantamento, a aba Levantamento
+        String detalhe = mockMvc.perform(get("/projetos/" + id).with(anaLogada()))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.LEVANTAMENTO))
+                .andExpect(TrilhaDeNavegacao.doProprioProjeto())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(detalhe)
+                .containsPattern("class=\"nav-link active\"\\s+id=\"aba-levantamento-tab\" data-aba=\"levantamento\"")
+                .containsPattern("class=\"tab-pane fade show active\"\\s+id=\"aba-levantamento\"")
+                .containsPattern("data-aba=\"lista\"[^>]*aria-selected=\"false\"");
+        assertThat(detalhe.split("nav-link active", -1)).hasSize(2);
+        assertThat(detalhe.split("show active", -1)).hasSize(2);
+        assertThat(detalhe).containsOnlyOnce("(fase atual)").doesNotContain("(concluída)");
+
+        // Próximo passo: a vendedora vê que está com o campo, sem o botão; o técnico vê o botão
+        assertThat(detalhe)
+                .contains("Próximo passo:", "fazer a visita e preencher o levantamento", "Aguardando a equipe de campo.",
+                        "Visita agendada para quarta-feira, 18/11/2026 às 08:30.")
+                .doesNotContain("proximo-passo-comigo");
+        mockMvc.perform(get("/projetos/" + id).with(logado("tiago")))
+                .andExpect(content().string(containsString("proximo-passo-comigo")))
+                .andExpect(content().string(containsString("Com a equipe de campo.")))
+                .andExpect(content().string(containsString(">Preencher levantamento</a>")));
 
         // O que ficou gravado
         Projeto projeto = relido(id);
@@ -329,6 +353,7 @@ class ProjetoIntegrationTest {
 
         mockMvc.perform(get("/comercial/projetos/" + id + "/visita").with(anaLogada()))
                 .andExpect(status().isOk())
+                .andExpect(TrilhaDeNavegacao.doProjeto(id, "Reagendar visita técnica"))
                 .andExpect(content().string(containsString("Reagendar visita técnica")))
                 .andExpect(content().string(containsString("value=\"2026-11-18T08:30:00\"")));
         mockMvc.perform(post("/comercial/projetos/" + id + "/visita").with(csrf()).with(anaLogada())
@@ -466,7 +491,26 @@ class ProjetoIntegrationTest {
         mockMvc.perform(get("/projetos").param("situacao", "ORCANDO").with(anaLogada()))
                 .andExpect(content().string(containsString("PRJ-2026-0001")))
                 .andExpect(content().string(not(containsString("PRJ-2026-0002"))))
-                .andExpect(content().string(containsString("/comercial/projetos/novo")));
+                .andExpect(content().string(containsString("/comercial/projetos/novo")))
+                // O filtro agrupa as situações pela fase
+                .andExpect(content().string(containsString("label=\"Proposta\"")))
+                .andExpect(content().string(containsString("label=\"Encerrados e cancelados\"")));
+
+        // Cada projeto diz o próximo passo; o técnico só acompanha os dois
+        mockMvc.perform(get("/projetos").with(logado("tiago")))
+                .andExpect(content().string(containsString("Gerar o orçamento e a proposta")))
+                .andExpect(content().string(containsString("Agendar a visita técnica")))
+                .andExpect(content().string(containsString("Aguardando o comercial")))
+                .andExpect(content().string(not(containsString(">Gerar orçamento</a>"))));
+        mockMvc.perform(get("/projetos").param("meus", "true").with(logado("tiago")))
+                .andExpect(content().string(not(containsString("PRJ-2026-0001"))))
+                .andExpect(content().string(containsString("Nenhum projeto esperando por você agora.")));
+        // Para a vendedora os dois passos são dela, com o botão de cada um
+        mockMvc.perform(get("/projetos").param("meus", "true").with(anaLogada()))
+                .andExpect(content().string(containsString("PRJ-2026-0001")))
+                .andExpect(content().string(containsString("PRJ-2026-0002")))
+                .andExpect(content().string(containsString(">Gerar orçamento</a>")))
+                .andExpect(content().string(containsString(">Agendar visita</a>")));
 
         assertThat(projetoService.pesquisar(null, "maria")).extracting(Projeto::getCodigo)
                 .containsExactly("PRJ-2026-0002");
@@ -511,5 +555,35 @@ class ProjetoIntegrationTest {
                 .andExpect(content().string(containsString("23/11 a 29/11/2026 · 1 visita(s)")))
                 .andExpect(content().string(containsString("PRJ-2026-0002")))
                 .andExpect(content().string(not(containsString("PRJ-2026-0001"))));
+    }
+
+    @Test
+    @DisplayName("A grade põe a visita na altura do horário, e o calendário do mês troca de mês sem mudar a semana")
+    void testCalendarioDaAgenda() throws Exception {
+        Long id = abrirProjeto(joao, fazenda);
+        mockMvc.perform(post("/comercial/projetos/" + id + "/visita").with(csrf()).with(anaLogada())
+                .param("dataAgendada", "2026-11-18T08:30"));
+
+        mockMvc.perform(get("/projetos/agenda").with(anaLogada()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Novembro de 2026</h2>")))
+                // 08:30 são 510 minutos desde 0h
+                .andExpect(content().string(containsString("--inicio: 510")))
+                .andExpect(content().string(containsString("Segunda-feira, 16/11, hoje")))
+                .andExpect(content().string(containsString("/projetos/agenda?semana=2026-11-16&amp;mes=2026-12")))
+                .andExpect(model().attribute("miniCalendario",
+                        hasProperty("primeiroDia", is(LocalDate.of(2026, 11, 1)))));
+
+        // O mês ao lado vai para dezembro, e a semana aberta continua a de 16/11
+        mockMvc.perform(get("/projetos/agenda").param("semana", "2026-11-16").param("mes", "2026-12")
+                .with(anaLogada()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Dezembro de 2026</h2>")))
+                .andExpect(content().string(containsString("16/11 a 22/11/2026 · 1 visita(s)")))
+                .andExpect(content().string(containsString("PRJ-2026-0001")));
+
+        // Semana entre dois meses
+        mockMvc.perform(get("/projetos/agenda").param("semana", "2026-12-02").with(anaLogada()))
+                .andExpect(content().string(containsString("Novembro e dezembro de 2026")));
     }
 }

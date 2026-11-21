@@ -1,6 +1,7 @@
 package br.edu.iftm.irrigacao.dominio.execucao;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +24,10 @@ import jakarta.validation.constraints.NotNull;
 /**
  * Ordem de serviço da instalação, com a data programada e a equipe de técnicos (RF15).
  * A ordem está aberta enquanto {@code dataConclusao} está vazia.
+ *
+ * <p>Um projeto pode ter várias ordens abertas ao mesmo tempo, uma por equipe ou etapa. Cada uma
+ * marca em {@code instalacaoConcluidaEm} quando a sua parte da instalação terminou; a medição só
+ * começa quando todas as abertas terminaram (RF16).
  */
 @Entity
 @Table(name = "ordem_servico")
@@ -49,6 +54,10 @@ public class OrdemServico extends EntidadeAuditada {
     @Column(name = "data_conclusao")
     private LocalDate dataConclusao;
 
+    /** Quando a equipe desta ordem terminou a sua parte da instalação; vazio enquanto trabalha. */
+    @Column(name = "instalacao_concluida_em")
+    private LocalDateTime instalacaoConcluidaEm;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "ordem_servico_tecnico",
             joinColumns = @JoinColumn(name = "ordem_servico_id"),
@@ -59,12 +68,13 @@ public class OrdemServico extends EntidadeAuditada {
     }
 
     public OrdemServico(Long id, Projeto projeto, Integer numero, LocalDate dataProgramada,
-            LocalDate dataConclusao, List<Usuario> tecnicos) {
+            LocalDate dataConclusao, LocalDateTime instalacaoConcluidaEm, List<Usuario> tecnicos) {
         this.id = id;
         this.projeto = projeto;
         this.numero = numero;
         this.dataProgramada = dataProgramada;
         this.dataConclusao = dataConclusao;
+        this.instalacaoConcluidaEm = instalacaoConcluidaEm;
         this.tecnicos = tecnicos;
     }
 
@@ -106,6 +116,14 @@ public class OrdemServico extends EntidadeAuditada {
 
     public void setDataConclusao(LocalDate dataConclusao) {
         this.dataConclusao = dataConclusao;
+    }
+
+    public LocalDateTime getInstalacaoConcluidaEm() {
+        return instalacaoConcluidaEm;
+    }
+
+    public void setInstalacaoConcluidaEm(LocalDateTime instalacaoConcluidaEm) {
+        this.instalacaoConcluidaEm = instalacaoConcluidaEm;
     }
 
     public List<Usuario> getTecnicos() {

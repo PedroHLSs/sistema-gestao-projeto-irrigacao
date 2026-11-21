@@ -31,4 +31,17 @@ public enum SituacaoProjeto {
     public String getRotulo() {
         return rotulo;
     }
+
+    /**
+     * Da aprovação da proposta até o aceite do cliente o material do projeto continua sendo comprado,
+     * recebido e separado (RF13, RF14). Em projeto grande a obra começa com parte do material: depois
+     * que o almoxarifado libera a execução, o restante é separado enquanto a equipe instala.
+     */
+    public boolean isMaterialEmAndamento() {
+        return switch (this) {
+            case PREPARANDO_MATERIAL, PROGRAMANDO_EXECUCAO, EXECUTANDO_INSTALACAO, VALIDANDO_MEDICAO,
+                    CORRIGINDO_INSTALACAO, COLHENDO_ACEITE, TRATANDO_PENDENCIA -> true;
+            case EM_LEVANTAMENTO, ORCANDO, AGUARDANDO_RESPOSTA, FINALIZANDO_EXECUCAO, ENCERRADO, CANCELADO -> false;
+        };
+    }
 }

@@ -3,6 +3,7 @@ package br.edu.iftm.irrigacao.apresentacao.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -46,6 +47,7 @@ import br.edu.iftm.irrigacao.dominio.acesso.UsuarioService;
 import br.edu.iftm.irrigacao.dominio.comercial.Produtor;
 import br.edu.iftm.irrigacao.dominio.comercial.ProdutorService;
 import br.edu.iftm.irrigacao.dominio.comercial.Propriedade;
+import br.edu.iftm.irrigacao.dominio.estoque.EstoqueService;
 import br.edu.iftm.irrigacao.dominio.estoque.ItemProjeto;
 import br.edu.iftm.irrigacao.dominio.estoque.MaterialService;
 import br.edu.iftm.irrigacao.dominio.projeto.DadosLevantamento;
@@ -91,6 +93,9 @@ class EngenhariaIntegrationTest {
 
     @Autowired
     private MaterialService materialService;
+
+    @Autowired
+    private EstoqueService estoqueService;
 
     @Autowired
     private LevantamentoService levantamentoService;
@@ -199,6 +204,7 @@ class EngenhariaIntegrationTest {
         mockMvc.perform(get(tela).with(logado("paulo")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("engenharia/dimensionamento"))
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "Dimensionamento e lista técnica"))
                 .andExpect(content().string(containsString("O dimensionamento é liberado quando o levantamento estiver completo.")))
                 .andExpect(content().string(containsString("<li>pelo menos uma foto</li>")))
                 .andExpect(content().string(not(containsString("name=\"pressaoProjetoMca\""))))
@@ -293,6 +299,44 @@ class EngenhariaIntegrationTest {
     }
 
     @Test
+    @DisplayName("Quantidade acima do disponível em estoque grava com aviso do que falta; dentro do estoque, sem aviso")
+    void testAvisoAcimaDoEstoque() throws Exception {
+        completarLevantamento();
+        estoqueService.entradaCompra(tuboId, new BigDecimal("50"));
+
+        mockMvc.perform(adicionar(tuboId, "30"))
+                .andExpect(flash().attribute("sucesso", "TB-PVC-050 adicionado à lista técnica."))
+                .andExpect(flash().attribute("aviso", nullValue()));
+        Long tuboItem = itens().get(0).getId();
+
+        mockMvc.perform(comoPaulo(post("/engenharia/projetos/" + projetoId + "/itens/" + tuboItem)).param("quantidade", "80"))
+                .andExpect(flash().attribute("sucesso", "Quantidade de TB-PVC-050 alterada."))
+                .andExpect(flash().attribute("aviso", "TB-PVC-050: a quantidade prevista (80 barra) passa do disponível "
+                        + "em estoque (50 barra). Faltam 30 barra, que entram nos faltantes para cotação no orçamento."));
+        mockMvc.perform(adicionar(gotejadorId, "250.5"))
+                .andExpect(flash().attribute("aviso", "GT-AUT-2L: a quantidade prevista (250,5 un) passa do disponível "
+                        + "em estoque (0 un). Faltam 250,5 un, que entram nos faltantes para cotação no orçamento."));
+
+        // O aviso não bloqueia: os dois itens estão na lista
+        assertThat(itens()).extracting(i -> i.getQuantidadePrevista().stripTrailingZeros().toPlainString())
+                .containsExactly("250.5", "80");
+
+        // A linha mostra o aviso e leva o disponível para o app.js conferir ao digitar
+        mockMvc.perform(get(tela).with(logado("paulo")))
+                .andExpect(content().string(containsString("Acima do estoque (disponível: 50 barra). Faltam 30 barra.")))
+                .andExpect(content().string(containsString("Acima do estoque (disponível: 0 un). Faltam 250,5 un.")))
+                .andExpect(content().string(containsString("data-disponivel=\"50\"")))
+                .andExpect(content().string(containsString("data-aviso-estoque=\"avisoEstoqueNovo\"")));
+
+        // Dentro do estoque, o aviso da linha fica escondido
+        mockMvc.perform(comoPaulo(post("/engenharia/projetos/" + projetoId + "/itens/" + tuboItem)).param("quantidade", "50"))
+                .andExpect(flash().attribute("aviso", nullValue()));
+        mockMvc.perform(get(tela).with(logado("paulo")))
+                .andExpect(content().string(not(containsString("Faltam 0 barra"))))
+                .andExpect(content().string(not(containsString("disponível: 50 barra"))));
+    }
+
+    @Test
     @DisplayName("Quantidade inválida e item de outro projeto são recusados")
     void testItensInvalidos() throws Exception {
         completarLevantamento();
@@ -359,6 +403,12 @@ class EngenhariaIntegrationTest {
                         "Lista técnica concluída. O projeto PRJ-2026-0001 passou para \"Orçando\"."));
 
         assertThat(projetoRelido().getSituacao()).isEqualTo(SituacaoProjeto.ORCANDO);
+        // A volta para o projeto cai na aba Proposta, onde está o próximo passo (gerar o orçamento)
+        mockMvc.perform(get("/projetos/" + projetoId).with(logado("ana")))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.PROPOSTA))
+                .andExpect(content().string(containsString("gerar o orçamento e a proposta")))
+                .andExpect(content().string(containsString("proximo-passo-comigo")))
+                .andExpect(content().string(containsString(">Gerar orçamento</a>")));
         List<HistoricoProjeto> historico = historicoRepository.listarPorProjeto(projetoId);
         HistoricoProjeto transicao = historico.get(historico.size() - 1);
         assertThat(transicao.getSituacaoAnterior()).isEqualTo(SituacaoProjeto.EM_LEVANTAMENTO);
@@ -451,6 +501,35 @@ class EngenhariaIntegrationTest {
                 .andExpect(content().string(containsString("30,00 mca")))
                 .andExpect(content().string(containsString("Lista técnica concluída com 2 itens.")))
                 .andExpect(content().string(not(containsString("Preencher levantamento"))))
-                .andExpect(content().string(not(containsString("Dimensionar e montar a lista"))));
+                .andExpect(content().string(not(containsString("/engenharia/projetos/" + projetoId + "/dimensionamento"))));
+    }
+
+    // ---------- Página da engenharia ----------
+
+    @Test
+    @DisplayName("O menu Engenharia abre a fila do projetista: o levantamento completo aparece com o link para dimensionar")
+    void testFilaDaEngenharia() throws Exception {
+        mockMvc.perform(get("/engenharia").with(logado("paulo")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("engenharia/fila"))
+                .andExpect(content().string(containsString("href=\"/engenharia\"")))
+                .andExpect(content().string(containsString("Nenhum levantamento esperando.")))
+                .andExpect(content().string(containsString("Nenhum projeto esperando a programação.")));
+
+        completarLevantamento();
+        mockMvc.perform(get("/engenharia").with(logado("paulo")))
+                .andExpect(content().string(containsString("PRJ-2026-0001")))
+                .andExpect(content().string(containsString("Café")))
+                .andExpect(content().string(containsString("12,50 ha")))
+                .andExpect(content().string(containsString("Pendente")))
+                .andExpect(content().string(containsString(tela)));
+
+        mockMvc.perform(dimensionar("30", "6", "2"));
+        mockMvc.perform(get("/engenharia").with(logado("paulo")))
+                .andExpect(content().string(containsString("Informado")));
+
+        for (String login : List.of("tiago", "ana")) {
+            mockMvc.perform(get("/engenharia").with(logado(login))).andExpect(status().isForbidden());
+        }
     }
 }

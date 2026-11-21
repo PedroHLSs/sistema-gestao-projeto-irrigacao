@@ -168,6 +168,7 @@ class LevantamentoIntegrationTest {
         mockMvc.perform(get(formulario).with(logado("tiago")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("campo/levantamento"))
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "Levantamento"))
                 .andExpect(content().string(containsString("enctype=\"multipart/form-data\"")))
                 .andExpect(content().string(containsString("accept=\"image/*\" capture=\"environment\" multiple")))
                 .andExpect(content().string(containsString("Usar minha localização")))
@@ -222,6 +223,7 @@ class LevantamentoIntegrationTest {
                 .andExpect(content().string(not(containsString("<li>cultura</li>"))))
                 .andExpect(content().string(not(containsString("Levantamento completo"))));
         mockMvc.perform(get("/projetos/" + projetoId).with(logado("paulo")))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.LEVANTAMENTO))
                 .andExpect(content().string(not(containsString("/engenharia/projetos/" + projetoId + "/dimensionamento"))));
     }
 
@@ -241,7 +243,9 @@ class LevantamentoIntegrationTest {
         assertThat(levantamento.getFotos().get(0)).endsWith(".jpg");
         assertThat(levantamento.getFotos().get(1)).endsWith(".png");
 
+        // O próximo passo é o dimensionamento: a página abre na aba Lista técnica
         mockMvc.perform(get("/projetos/" + projetoId).with(logado("paulo")))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.LISTA))
                 .andExpect(content().string(containsString("Levantamento completo: o dimensionamento está liberado.")))
                 .andExpect(content().string(containsString("Poço artesiano")))
                 .andExpect(content().string(containsString("12,50 ha")))

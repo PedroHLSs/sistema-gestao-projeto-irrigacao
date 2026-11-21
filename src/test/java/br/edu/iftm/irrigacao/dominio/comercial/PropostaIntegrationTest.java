@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,6 +39,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.edu.iftm.irrigacao.apresentacao.web.AbaProjeto;
+import br.edu.iftm.irrigacao.apresentacao.web.TrilhaDeNavegacao;
 import br.edu.iftm.irrigacao.config.RelogioDeTesteConfig;
 import br.edu.iftm.irrigacao.dominio.RegraNegocioException;
 import br.edu.iftm.irrigacao.dominio.acesso.Perfil;
@@ -53,11 +56,13 @@ import br.edu.iftm.irrigacao.dominio.estoque.MovimentacaoEstoque;
 import br.edu.iftm.irrigacao.dominio.estoque.SituacaoCotacao;
 import br.edu.iftm.irrigacao.dominio.estoque.TipoMovimentacao;
 import br.edu.iftm.irrigacao.dominio.projeto.HistoricoProjeto;
+import br.edu.iftm.irrigacao.dominio.projeto.Levantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 import br.edu.iftm.irrigacao.persistencia.CotacaoRepository;
 import br.edu.iftm.irrigacao.persistencia.HistoricoProjetoRepository;
 import br.edu.iftm.irrigacao.persistencia.ItemProjetoRepository;
+import br.edu.iftm.irrigacao.persistencia.LevantamentoRepository;
 import br.edu.iftm.irrigacao.persistencia.MaterialRepository;
 import br.edu.iftm.irrigacao.persistencia.ProjetoRepository;
 import br.edu.iftm.irrigacao.persistencia.PropostaRepository;
@@ -129,6 +134,9 @@ class PropostaIntegrationTest {
 
     @Autowired
     private HistoricoProjetoRepository historicoRepository;
+
+    @Autowired
+    private LevantamentoRepository levantamentoRepository;
 
     @Autowired
     private EntityManager em;
@@ -491,6 +499,7 @@ class PropostaIntegrationTest {
         mockMvc.perform(get(tela).with(logado("carlos")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("comercial/faltantes"))
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "Faltantes e cotações"))
                 .andExpect(content().string(containsString("Faltam 300 un")))
                 .andExpect(content().string(not(containsString("TB-PVC-050 · Tubo"))))
                 .andExpect(content().string(containsString("Registrar cotação")));
@@ -542,6 +551,7 @@ class PropostaIntegrationTest {
         mockMvc.perform(get(projetoUm + "/orcamento").with(logado("ana"))
                         .param("horasPrevistas", "10").param("percentualDesconto", "5"))
                 .andExpect(status().isOk())
+                .andExpect(TrilhaDeNavegacao.doProjeto(projetoId, "Orçamento"))
                 .andExpect(content().string(containsString("R$ 2.363,60")))
                 .andExpect(content().string(containsString("Gerar proposta")));
         String paginaUm = mockMvc.perform(post(projetoUm + "/propostas").with(csrf()).with(logado("ana"))
@@ -581,6 +591,7 @@ class PropostaIntegrationTest {
                         .param("observacao", "Cliente antigo."))
                 .andExpect(redirectedUrl("/diretoria/aprovacoes"));
         mockMvc.perform(get(paginaDois).with(logado("ana")))
+                .andExpect(TrilhaDeNavegacao.doProjeto(outroProjetoId, "Proposta 1"))
                 .andExpect(content().string(containsString("Desconto aprovado por")))
                 .andExpect(content().string(containsString("Diana Diretora")));
         mockMvc.perform(post(paginaDois + "/enviar").with(csrf()).with(logado("ana")))
@@ -595,7 +606,12 @@ class PropostaIntegrationTest {
                 .andExpect(content().string(containsString("Reserva")))
                 .andExpect(content().string(containsString("PRJ-2026-0001")))
                 .andExpect(content().string(containsString("+100")));
+        // Com o material reservado, a página do projeto abre na aba Material, com o andamento da separação
         mockMvc.perform(get("/projetos/" + projetoId).with(logado("ana")))
+                .andExpect(model().attribute("abaAtual", AbaProjeto.MATERIAL))
+                .andExpect(content().string(containsString("itens separados por completo.")))
+                .andExpect(content().string(containsString("separar o material e liberar a execução")))
+                .andExpect(content().string(containsString("Aguardando o almoxarifado.")))
                 .andExpect(content().string(containsString("proposta-APROVADA")))
                 .andExpect(content().string(containsString("Proposta 1 aprovada pelo cliente.")));
     }
@@ -614,5 +630,170 @@ class PropostaIntegrationTest {
         mockMvc.perform(get("/comercial/propostas/" + id + "/imprimir").with(logado("ana")))
                 .andExpect(redirectedUrl("/comercial/propostas/" + id))
                 .andExpect(flash().attribute("erro", "Só a versão atual da proposta pode ser impressa."));
+    }
+
+    // ---------- Estimativa de mão de obra (RF09) ----------
+
+    private void levantamentoComArea(Long projeto, Double areaHa) {
+        Levantamento levantamento = new Levantamento();
+        levantamento.setProjeto(projetoRepository.getReferenceById(projeto));
+        levantamento.setAreaIrrigadaHa(areaHa);
+        levantamentoRepository.save(levantamento);
+    }
+
+    @Test
+    @DisplayName("As horas sugeridas são a área irrigada vezes 60 h/ha; sem área, não há sugestão")
+    void testEstimativaDeMaoDeObra() {
+        levantamentoComArea(projetoId, 12.5);
+        levantamentoComArea(outroProjetoId, null);
+
+        EstimativaMaoDeObra estimativa = propostaService.estimarMaoDeObra(projetoId).orElseThrow();
+        assertThat(estimativa.areaIrrigadaHa()).isEqualByComparingTo("12.5");
+        assertThat(estimativa.horasPorHectare()).isEqualByComparingTo("60");
+        assertThat(estimativa.horas()).isEqualByComparingTo("750.00");
+        assertThat(propostaService.estimarMaoDeObra(outroProjetoId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("O orçamento abre com as horas sugeridas, e as horas digitadas pelo vendedor prevalecem")
+    void testOrcamentoComHorasSugeridas() throws Exception {
+        levantamentoComArea(projetoId, 12.5);
+        String tela = "/comercial/projetos/" + projetoId + "/orcamento";
+
+        mockMvc.perform(get(tela).with(logado("ana")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("12,5 ha × 60 h/ha = 750 h")))
+                .andExpect(content().string(containsString("value=\"750.00\"")));
+        mockMvc.perform(get(tela).with(logado("ana")).param("horasPrevistas", "10").param("percentualDesconto", "5"))
+                .andExpect(content().string(containsString("value=\"10\"")))
+                .andExpect(content().string(containsString("R$ 2.363,60")));
+        mockMvc.perform(get("/comercial/projetos/" + outroProjetoId + "/orcamento").with(logado("ana")))
+                .andExpect(content().string(containsString("não tem a área irrigada")));
+    }
+
+    // ---------- Renegociação (RF11) ----------
+
+    @Test
+    @DisplayName("Renegociar: a enviada fica renegociada, o projeto volta a Orçando e a versão nova mantém os preços")
+    void testRenegociar() {
+        Long id = gerar("3").getId();
+        propostaService.enviar(id);
+        // O cadastro muda depois do envio; a renegociação não muda o preço que o cliente já viu
+        materialService.atualizar(tuboId, "TB-PVC-050", "Tubo PVC 50 mm", "barra", new BigDecimal("70.00"),
+                new BigDecimal("44.80"));
+
+        Proposta nova = propostaService.renegociar(id);
+
+        assertThat(relida(id).getSituacao()).isEqualTo(SituacaoProposta.RENEGOCIADA);
+        assertThat(projeto(projetoId).getSituacao()).isEqualTo(SituacaoProjeto.ORCANDO);
+        HistoricoProjeto transicao = ultimaMudanca(projetoId);
+        assertThat(transicao.getSituacaoAnterior()).isEqualTo(SituacaoProjeto.AGUARDANDO_RESPOSTA);
+        assertThat(transicao.getObservacao()).startsWith("Proposta 1 reaberta para renegociação a pedido do cliente.");
+        Proposta segunda = relida(nova.getId());
+        assertThat(segunda.getNumero()).isEqualTo(2);
+        assertThat(segunda.getSituacao()).isEqualTo(SituacaoProposta.EM_ELABORACAO);
+        assertThat(segunda.getHorasPrevistas()).isEqualByComparingTo("10");
+        assertThat(segunda.getPercentualDesconto()).isEqualByComparingTo("3");
+        assertThat(segunda.getDataEnvio()).isNull();
+        // (20 x 62,90 + 400 x 0,95 + 10 x 85,00) x 0,97: o tubo ainda a 62,90
+        assertThat(segunda.getValorTotal()).isEqualByComparingTo("2413.36");
+
+        // O vendedor dá o desconto que o cliente pediu, dentro da alçada, e envia de novo
+        propostaService.alterar(nova.getId(), new BigDecimal("10"), new BigDecimal("5"));
+        assertThat(relida(nova.getId()).getValorTotal()).isEqualByComparingTo("2363.60");
+        propostaService.enviar(nova.getId());
+        assertThat(relida(nova.getId()).getSituacao()).isEqualTo(SituacaoProposta.ENVIADA);
+        assertThat(projeto(projetoId).getSituacao()).isEqualTo(SituacaoProjeto.AGUARDANDO_RESPOSTA);
+    }
+
+    @Test
+    @DisplayName("Renegociar mantém a aprovação da diretoria para o mesmo desconto; mudar o desconto a desfaz")
+    void testRenegociarComAprovacaoDaDiretoria() {
+        logar(ana);
+        Long id = gerar("8").getId();
+        propostaService.pedirAprovacao(id);
+        logar(diana);
+        propostaService.aprovarDesconto(id, "Cliente antigo.");
+        logar(ana);
+        propostaService.enviar(id);
+
+        Proposta nova = propostaService.renegociar(id);
+        Proposta segunda = relida(nova.getId());
+        assertThat(segunda.getAprovadoPor().getLogin()).isEqualTo("diana");
+        assertThat(segunda.getObservacaoDiretoria()).isEqualTo("Cliente antigo.");
+        assertThat(propostaService.podeEnviar(segunda)).isTrue();
+
+        propostaService.alterar(nova.getId(), new BigDecimal("10"), new BigDecimal("9"));
+        Proposta alterada = relida(nova.getId());
+        assertThat(alterada.getAprovadoPor()).isNull();
+        assertThat(propostaService.podeEnviar(alterada)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Só a proposta enviada e ainda válida é renegociada")
+    void testRenegociarSoQuandoPode() {
+        Long id = gerar("0").getId();
+        assertThatThrownBy(() -> propostaService.renegociar(id))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("não pode ser renegociada");
+
+        propostaService.enviar(id);
+        relogio.definir(LocalDateTime.of(2026, 12, 2, 0, 0));
+        assertThatThrownBy(() -> propostaService.renegociar(id))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("venceu: valia até 01/12/2026");
+        assertThat(relida(id).getSituacao()).isEqualTo(SituacaoProposta.ENVIADA);
+    }
+
+    @Test
+    @DisplayName("Pela tela: o botão aparece na enviada, leva à versão nova, e a lista filtra por situação")
+    void testRenegociarPelaTelaEFiltroDaLista() throws Exception {
+        Long id = gerar("0").getId();
+        propostaService.enviar(id);
+        String pagina = "/comercial/propostas/" + id;
+
+        mockMvc.perform(get(pagina).with(logado("ana")))
+                .andExpect(content().string(containsString("Cliente pediu mudança")))
+                .andExpect(content().string(containsString(pagina + "/renegociacao")));
+        String novaPagina = mockMvc.perform(post(pagina + "/renegociacao").with(csrf()).with(logado("ana")))
+                .andExpect(redirectedUrlPattern("/comercial/propostas/*"))
+                .andExpect(flash().attribute("sucesso", containsString("Proposta 2 aberta para a renegociação")))
+                .andReturn().getResponse().getRedirectedUrl();
+        assertThat(novaPagina).isNotEqualTo(pagina);
+        mockMvc.perform(get(novaPagina).with(logado("ana")))
+                .andExpect(content().string(containsString("Horas e desconto")))
+                .andExpect(content().string(not(containsString("Cliente pediu mudança"))));
+
+        // Padrão: em andamento, só a versão nova
+        mockMvc.perform(get("/comercial/propostas").with(logado("ana")))
+                .andExpect(content().string(containsString("PRJ-2026-0001 nº 2")))
+                .andExpect(content().string(not(containsString("PRJ-2026-0001 nº 1"))));
+        mockMvc.perform(get("/comercial/propostas").param("filtro", "RENEGOCIADA").with(logado("ana")))
+                .andExpect(content().string(containsString("PRJ-2026-0001 nº 1")))
+                .andExpect(content().string(containsString("proposta-RENEGOCIADA")))
+                .andExpect(content().string(not(containsString("PRJ-2026-0001 nº 2"))));
+        mockMvc.perform(get("/comercial/propostas").param("filtro", "TODAS").with(logado("ana")))
+                .andExpect(content().string(containsString("PRJ-2026-0001 nº 1")))
+                .andExpect(content().string(containsString("PRJ-2026-0001 nº 2")));
+        mockMvc.perform(get("/comercial/propostas").param("filtro", "APROVADA").with(logado("ana")))
+                .andExpect(content().string(containsString("Nenhuma proposta nesta situação.")));
+        // Filtro desconhecido volta para as em andamento
+        mockMvc.perform(get("/comercial/propostas").param("filtro", "QUALQUER").with(logado("ana")))
+                .andExpect(content().string(containsString("PRJ-2026-0001 nº 2")))
+                .andExpect(content().string(not(containsString("PRJ-2026-0001 nº 1"))));
+    }
+
+    @Test
+    @DisplayName("A proposta aprovada sai da lista padrão, mas aparece no filtro de aprovadas")
+    void testAprovadaNoFiltro() throws Exception {
+        Long id = gerar("0").getId();
+        propostaService.enviar(id);
+        propostaService.registrarAprovacao(id);
+
+        mockMvc.perform(get("/comercial/propostas").with(logado("ana")))
+                .andExpect(content().string(containsString("Nenhuma proposta em andamento.")));
+        mockMvc.perform(get("/comercial/propostas").param("filtro", "APROVADA").with(logado("ana")))
+                .andExpect(content().string(containsString("PRJ-2026-0001 nº 1")))
+                .andExpect(content().string(containsString("1 proposta(s)")));
     }
 }

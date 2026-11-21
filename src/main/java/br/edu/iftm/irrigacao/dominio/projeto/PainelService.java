@@ -15,4 +15,10 @@ public interface PainelService {
      * @param usuarioId id do usuário logado, usado nos painéis pessoais; pode ser {@code null}
      */
     PainelInicial montar(Perfil perfil, Long usuarioId);
+
+    /** As filas de trabalho da página da engenharia, para o projetista e o administrador (RF05, RF15). */
+    FilaEngenharia filaEngenharia();
+
+    /** As filas de trabalho do almoxarifado: separar, continuar a separação e receber as sobras (RF14, RF19). */
+    FilaEstoque filaEstoque();
 }

@@ -164,6 +164,62 @@ public class EstoqueServiceImpl implements EstoqueService {
     }
 
     @Override
+    @Transactional
+    public void acertarBaixaAlemDoSeparado(Long materialId, Long projetoId, BigDecimal apontada,
+            BigDecimal separada) {
+        BigDecimal alvo = apontada.subtract(separada).max(BigDecimal.ZERO);
+        // Durante a instalação nenhuma sobra foi devolvida ainda: o que saiu e não voltou, menos o
+        // separado, é o que já foi baixado além dele
+        BigDecimal jaBaixado = somar(projetoId, materialId, TipoMovimentacao.SAIDA_PROJETO)
+                .subtract(somar(projetoId, materialId, TipoMovimentacao.DEVOLUCAO))
+                .subtract(separada)
+                .max(BigDecimal.ZERO);
+        BigDecimal diferenca = alvo.subtract(jaBaixado);
+        if (diferenca.signum() > 0) {
+            baixarParaProjeto(materialId, projetoId, diferenca);
+        } else if (diferenca.signum() < 0) {
+            devolver(materialId, projetoId, diferenca.negate());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void baixarParaProjeto(Long materialId, Long projetoId, BigDecimal quantidade) {
+        exigirQuantidade(quantidade);
+        // Com a separação parcial, o item ainda tem reserva do projeto que não saiu: ela é usada primeiro
+        BigDecimal aReservar = quantidade.subtract(reservaPendente(projetoId, materialId).max(BigDecimal.ZERO));
+        if (aReservar.signum() > 0) {
+            reservar(materialId, projetoId, aReservar);
+        }
+        baixarReservaParaProjeto(materialId, projetoId, quantidade);
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal liberarReservaPendente(Long materialId, Long projetoId) {
+        buscarMaterial(materialId);
+        buscarProjeto(projetoId);
+        BigDecimal pendente = reservaPendente(projetoId, materialId);
+        if (pendente.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (materialRepository.liberarReserva(materialId, pendente) == 0) {
+            Material atual = buscarMaterial(materialId);
+            throw new SaldoInsuficienteException("Reserva insuficiente de " + descrever(atual) + ": liberar "
+                    + quantidade(pendente, atual) + ", reservado " + quantidade(atual.getSaldoReservado(), atual)
+                    + ".", atual.getSaldoReservado());
+        }
+        registrar(materialId, projetoId, TipoMovimentacao.RESERVA, pendente.negate());
+        return pendente;
+    }
+
+    /** O que foi reservado para o projeto e ainda não saiu do estoque. */
+    private BigDecimal reservaPendente(Long projetoId, Long materialId) {
+        return somar(projetoId, materialId, TipoMovimentacao.RESERVA)
+                .subtract(somar(projetoId, materialId, TipoMovimentacao.SAIDA_PROJETO));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<DisponibilidadeItem> disponibilidade(Long projetoId) {
         buscarProjeto(projetoId);

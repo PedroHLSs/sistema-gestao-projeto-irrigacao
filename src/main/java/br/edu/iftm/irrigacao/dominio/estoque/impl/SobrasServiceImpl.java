@@ -68,7 +68,7 @@ public class SobrasServiceImpl implements SobrasService {
 
     @Override
     @Transactional
-    public void devolver(Long projetoId, Map<Long, BigDecimal> devolvidas) {
+    public int devolver(Long projetoId, Map<Long, BigDecimal> devolvidas) {
         Projeto projeto = projetoRepository.buscarParaAlterarSituacao(projetoId)
                 .orElseThrow(() -> new RegistroNaoEncontradoException("Projeto não encontrado."));
         if (projeto.isSobrasDevolvidas()) {
@@ -83,7 +83,8 @@ public class SobrasServiceImpl implements SobrasService {
         Map<Long, BigDecimal> quantidades = devolvidas == null ? Map.of() : devolvidas;
         // material -> quantidade que volta ao estoque
         Map<Long, BigDecimal> aDevolver = new LinkedHashMap<>();
-        for (ItemProjeto item : itemProjetoRepository.listarPorProjetoComMaterial(projetoId)) {
+        List<ItemProjeto> itens = itemProjetoRepository.listarPorProjetoComMaterial(projetoId);
+        for (ItemProjeto item : itens) {
             BigDecimal sobra = sobra(item);
             if (sobra.signum() == 0) {
                 continue;
@@ -110,6 +111,14 @@ public class SobrasServiceImpl implements SobrasService {
         projeto.setSobrasDevolvidas(true);
         projetoRepository.saveAndFlush(projeto);
         aDevolver.forEach((materialId, quantidade) -> estoqueService.devolver(materialId, projetoId, quantidade));
+        // Separação parcial: a reserva do que não foi separado nem usado volta ao disponível
+        int liberadas = 0;
+        for (Long materialId : itens.stream().map(item -> item.getMaterial().getId()).distinct().toList()) {
+            if (estoqueService.liberarReservaPendente(materialId, projetoId).signum() > 0) {
+                liberadas++;
+            }
+        }
+        return liberadas;
     }
 
     /** Separada menos apontada, nunca negativa: apontar mais que o separado não gera sobra. */

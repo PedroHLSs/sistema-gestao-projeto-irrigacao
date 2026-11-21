@@ -20,9 +20,8 @@ import br.edu.iftm.irrigacao.dominio.estoque.Cotacao;
 import br.edu.iftm.irrigacao.dominio.estoque.CotacaoService;
 import br.edu.iftm.irrigacao.dominio.estoque.DisponibilidadeItem;
 import br.edu.iftm.irrigacao.dominio.estoque.EstoqueService;
+import br.edu.iftm.irrigacao.dominio.estoque.ProgressoSeparacao;
 import br.edu.iftm.irrigacao.dominio.estoque.Quantidade;
-import br.edu.iftm.irrigacao.dominio.estoque.ResultadoConferencia;
-import br.edu.iftm.irrigacao.dominio.estoque.ResultadoConferencia.Divergencia;
 import br.edu.iftm.irrigacao.dominio.estoque.SeparacaoService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.ProjetoService;
@@ -30,8 +29,9 @@ import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 
 /**
  * Material do projeto aprovado no almoxarifado (RF13, RF14, G4, G5): disponibilidade, requisição de
- * compra dos faltantes pelo comprador, requisições abertas e recebimento, separação e conferência
- * pelo almoxarife. Fica sob {@code /estoque} (ALMOXARIFE, COMPRADOR e ADMINISTRADOR); quem requisita
+ * compra dos faltantes pelo comprador, requisições abertas e recebimento, separação e liberação da
+ * execução pelo almoxarife. A execução começa com parte do material, e a separação e a compra do
+ * restante continuam durante a instalação, até o aceite. Fica sob {@code /estoque} (ALMOXARIFE, COMPRADOR e ADMINISTRADOR); quem requisita
  * e quem separa é conferido no {@code SecurityConfig}.
  */
 @Controller
@@ -67,8 +67,12 @@ public class SeparacaoController {
                 .filter(separacaoService::podeSeparar)
                 .map(item -> item.getItem().getId())
                 .collect(Collectors.toSet()));
-        model.addAttribute("emPreparacao", projeto.getSituacao() == SituacaoProjeto.PREPARANDO_MATERIAL
+        model.addAttribute("separacaoAberta", separacaoService.separacaoAberta(projeto));
+        // Antes da liberação a separação fica no almoxarifado; depois dela, cada gravação já sai do estoque
+        model.addAttribute("podeLiberar", projeto.getSituacao() == SituacaoProjeto.PREPARANDO_MATERIAL
                 && !projeto.isSeparacaoConferida());
+        model.addAttribute("liberada", projeto.isSeparacaoConferida());
+        model.addAttribute("progresso", new ProgressoSeparacao(itens.stream().map(DisponibilidadeItem::getItem).toList()));
         return "estoque/separacao";
     }
 
@@ -90,6 +94,7 @@ public class SeparacaoController {
         return paginaDaSeparacao(id);
     }
 
+    /** RF14: grava o que foi separado agora, somado ao que já estava; a separação pode ir aos poucos. */
     @PostMapping("/projetos/{id:\\d+}/separacao")
     public String registrar(@PathVariable Long id, @ModelAttribute("separacao") SeparacaoForm form,
             BindingResult resultado, RedirectAttributes redirect) {
@@ -98,24 +103,36 @@ public class SeparacaoController {
                     + "casas decimais.");
             return paginaDaSeparacao(id);
         }
-        separacaoService.registrar(id, form.getQuantidades());
-        redirect.addFlashAttribute("sucesso", "Separação gravada. Confira quando todos os itens estiverem separados.");
+        ProgressoSeparacao progresso = separacaoService.separar(id, form.getQuantidades());
+        int alterados = progresso.getItensAlterados();
+        if (alterados == 0) {
+            redirect.addFlashAttribute("aviso", "Nada foi gravado: informe em \"Separar agora\" quanto você separou "
+                    + "de cada item.");
+        } else {
+            boolean liberada = projetoService.buscarPorId(id).isSeparacaoConferida();
+            String gravada = "Separação gravada em " + alterados + (alterados == 1 ? " item. " : " itens. ")
+                    + (liberada ? "O que foi separado agora saiu do estoque para o projeto. " : "");
+            String andamento = progresso.isCompleta() ? "Todos os itens estão separados."
+                    : progresso.getCompletos() + " de " + progresso.getTotal() + " itens estão completos; continue "
+                            + "quando quiser, o que já foi separado fica guardado.";
+            String liberar = liberada ? "" : " Com pelo menos um item separado, a execução já pode ser liberada.";
+            redirect.addFlashAttribute("sucesso", gravada + andamento + liberar);
+        }
         return paginaDaSeparacao(id);
     }
 
-    /** G5: confere a separação; com divergência, a tela volta com a lista dos itens e a diferença. */
-    @PostMapping("/projetos/{id:\\d+}/separacao/conferencia")
-    public String conferir(@PathVariable Long id, RedirectAttributes redirect) {
-        ResultadoConferencia resultado = separacaoService.conferir(id);
-        if (!resultado.isConferida()) {
-            redirect.addFlashAttribute("erro", "A separação não bate com a lista técnica. Nada saiu do estoque; "
-                    + "corrija as quantidades e confira de novo.");
-            redirect.addFlashAttribute("divergencias",
-                    resultado.getDivergencias().stream().map(Divergencia::getDescricao).toList());
-            return paginaDaSeparacao(id);
-        }
-        redirect.addFlashAttribute("sucesso", "Separação conferida: o material saiu do estoque e o projeto está em "
-                + "\"Programando execução\".");
+    /**
+     * G5: libera a execução com o que já foi separado (pelo menos um item). O separado sai do estoque
+     * e o projeto vai para a programação; o restante é separado durante a instalação.
+     */
+    @PostMapping("/projetos/{id:\\d+}/separacao/liberacao")
+    public String liberar(@PathVariable Long id, RedirectAttributes redirect) {
+        ProgressoSeparacao progresso = separacaoService.liberarParaExecucao(id);
+        String restante = progresso.isCompleta() ? ""
+                : " O restante continua reservado: separe aos poucos durante a instalação, e cada separação já sai "
+                        + "do estoque.";
+        redirect.addFlashAttribute("sucesso", "Execução liberada: o que foi separado saiu do estoque e o projeto está "
+                + "em \"Programando execução\"." + restante);
         return ProjetoController.paginaDoProjeto(id);
     }
 

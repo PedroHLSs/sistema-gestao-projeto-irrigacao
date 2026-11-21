@@ -9,12 +9,12 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, 'Orçamento')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <h1 class="page-title mb-2">Orçamento</h1>
         <p class="mb-3">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
             · <a th:href="@{/comercial/projetos/{id}/faltantes(id=${projeto.id})}">Faltantes e cotações</a>
         </p>
 
@@ -38,6 +38,14 @@
                 </button>
             </div>
             <div class="col-12 form-text">
+                <th:block th:if="${estimativa != null}">
+                    Horas sugeridas pela área irrigada:
+                    <strong th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(estimativa.areaIrrigadaHa)} ha × ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(estimativa.horasPorHectare)} h/ha = ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(estimativa.horas)} h|">12,5 ha × 60 h/ha = 750 h</strong>.
+                    Ajuste se a equipe tiver outra previsão.
+                </th:block>
+                <th:block th:if="${estimativa == null}">
+                    O levantamento não tem a área irrigada, então não há horas sugeridas.
+                </th:block>
                 Hora de mão de obra a <span th:text="|R$ ${#numbers.formatDecimal(parametros.precoHora, 1, 'POINT', 2, 'COMMA')}|">R$ 85,00</span>.
                 Alçada do vendedor: <span th:text="|${#numbers.formatDecimal(parametros.alcadaVendedor, 1, 'POINT', 2, 'COMMA')}%|">5,00%</span>
                 de desconto; acima disso, a proposta passa pela diretoria. Itens faltantes custam pela cotação mais barata.

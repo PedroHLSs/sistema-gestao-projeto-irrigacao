@@ -2,12 +2,16 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     marcarMenuAtivo();
+    lembrarAbaNoEndereco();
     prepararMenuLateral();
+    prepararAgenda();
     pedirConfirmacao();
     filtrarSelectsDependentes();
     usarLocalizacaoDoAparelho();
     conferirFotosEscolhidas();
     buscarMaterial();
+    avisarAcimaDoEstoque();
+    preencherSeparacao();
     imprimirPagina();
     prepararAssinatura();
 });
@@ -22,9 +26,12 @@ function imprimirPagina() {
 }
 
 // Destaca no menu o item que corresponde à página aberta. Quando mais de um item casa com o
-// caminho (como /projetos e /projetos/agenda), fica o mais específico.
+// caminho (como /projetos e /projetos/agenda), fica o mais específico. Página com trilha de
+// navegação (fragments/trilha.html) usa o começo da trilha: as telas de etapa, que ficam em
+// /comercial, /campo, /estoque..., são todas de um projeto e destacam "Projetos".
 function marcarMenuAtivo() {
-    var caminho = window.location.pathname;
+    var inicioDaTrilha = document.querySelector('.trilha a');
+    var caminho = inicioDaTrilha !== null ? inicioDaTrilha.pathname : window.location.pathname;
     var escolhido = null;
 
     document.querySelectorAll('.app-sidebar .app-menu-link').forEach(function (link) {
@@ -46,6 +53,54 @@ function marcarMenuAtivo() {
         escolhido.classList.add('active');
         escolhido.setAttribute('aria-current', 'page');
     }
+}
+
+// Abas com data-aba (projetos/detalheProjeto.html). O servidor já abre a aba da fase do projeto; o
+// fim do endereço (#proposta, #execucao...) escolhe outra. Trocar de aba atualiza o endereço sem
+// criar um passo novo no histórico, para que recarregar a página ou voltar de outra tela mantenha a
+// aba que estava aberta. Os nomes não são id de nenhum elemento, então a página não rola sozinha.
+function lembrarAbaNoEndereco() {
+    var botoes = document.querySelectorAll('[data-aba]');
+    if (botoes.length === 0 || typeof bootstrap === 'undefined') {
+        return;
+    }
+
+    function abrirAbaDoEndereco() {
+        var nome = window.location.hash.slice(1);
+        botoes.forEach(function (botao) {
+            if (botao.dataset.aba === nome) {
+                bootstrap.Tab.getOrCreateInstance(botao).show();
+            }
+        });
+    }
+
+    // Com a tela estreita as abas rolam de lado: traz a aba aberta para a vista, só na horizontal
+    function mostrarNaLista(botao) {
+        var lista = botao.closest('.nav');
+        if (lista === null || lista.scrollWidth <= lista.clientWidth) {
+            return;
+        }
+        var aba = botao.getBoundingClientRect();
+        var area = lista.getBoundingClientRect();
+        if (aba.right > area.right) {
+            lista.scrollLeft += aba.right - area.right + 8;
+        } else if (aba.left < area.left) {
+            lista.scrollLeft -= area.left - aba.left + 8;
+        }
+    }
+
+    botoes.forEach(function (botao) {
+        botao.addEventListener('shown.bs.tab', function () {
+            history.replaceState(null, '', '#' + botao.dataset.aba);
+            mostrarNaLista(botao);
+        });
+        if (botao.classList.contains('active')) {
+            mostrarNaLista(botao);
+        }
+    });
+
+    abrirAbaDoEndereco();
+    window.addEventListener('hashchange', abrirAbaDoEndereco);
 }
 
 // Menu lateral (fragments/header.html). No computador, o botão do topo recolhe o menu para só os
@@ -185,6 +240,109 @@ function prepararMenuLateral() {
         fecharMenu(false);
         aplicarRecolhido(raiz.classList.contains('menu-recolhido'));
     });
+}
+
+// Grade da agenda de visitas (projetos/agenda.html). Cada visita chega do servidor com --inicio, em
+// minutos desde 0h, e ocupa uma hora. Aqui: as visitas que se cruzam no mesmo dia ficam lado a lado,
+// a coluna de hoje ganha a linha da hora atual e a grade abre rolada até as visitas da semana (ou
+// até as 7h). Sem JavaScript, as visitas aparecem nos horários certos, só que sobrepostas.
+function prepararAgenda() {
+    var rolagem = document.querySelector('[data-agenda-rolagem]');
+    if (!rolagem) {
+        return;
+    }
+    var dias = rolagem.querySelectorAll('.agenda-dia');
+    if (dias.length === 0) {
+        return;
+    }
+    var primeiraVisita = null;
+    var diaComVisita = null;
+
+    dias.forEach(function (dia) {
+        var visitas = Array.prototype.map.call(dia.querySelectorAll('.agenda-evento'), function (evento) {
+            var inicio = parseInt(evento.style.getPropertyValue('--inicio'), 10) || 0;
+            return { elemento: evento, inicio: inicio, fim: Math.min(inicio + 60, 24 * 60) };
+        }).sort(function (a, b) {
+            return a.inicio - b.inicio;
+        });
+        porLadoALado(visitas);
+        if (visitas.length > 0) {
+            if (primeiraVisita === null || visitas[0].inicio < primeiraVisita) {
+                primeiraVisita = visitas[0].inicio;
+            }
+            diaComVisita = diaComVisita || dia;
+        }
+    });
+
+    var hoje = rolagem.querySelector('.agenda-dia.hoje');
+    if (hoje) {
+        var linha = document.createElement('div');
+        linha.className = 'agenda-agora';
+        linha.setAttribute('aria-hidden', 'true');
+        hoje.appendChild(linha);
+        var marcarAgora = function () {
+            var agora = new Date();
+            linha.style.setProperty('--minuto', agora.getHours() * 60 + agora.getMinutes());
+        };
+        marcarAgora();
+        setInterval(marcarAgora, 60 * 1000);
+    }
+
+    // Altura de um minuto na tela e quantos minutos cabem abaixo da linha dos dias
+    var cabecalho = rolagem.querySelector('.agenda-cabeca');
+    var pixelsPorMinuto = dias[0].offsetHeight / (24 * 60);
+    var minutosVisiveis = (rolagem.clientHeight - (cabecalho ? cabecalho.offsetHeight : 0)) / pixelsPorMinuto;
+
+    // Começa às 7h; uma visita mais cedo puxa a grade para cima, e uma que não caberia, para baixo
+    var alvo = 7 * 60;
+    if (primeiraVisita !== null) {
+        if (primeiraVisita < alvo + 30) {
+            alvo = Math.max(0, primeiraVisita - 30);
+        } else if (primeiraVisita + 60 > alvo + minutosVisiveis) {
+            alvo = primeiraVisita - 60;
+        }
+    }
+    // Uma folga acima para o rótulo da hora não ficar cortado pela linha dos dias
+    rolagem.scrollTop = Math.max(0, alvo * pixelsPorMinuto - 12);
+
+    // No celular os dias não cabem lado a lado: abre em hoje ou no primeiro dia com visita
+    var diaInicial = hoje || diaComVisita;
+    var horas = rolagem.querySelector('.agenda-horas');
+    if (diaInicial && rolagem.scrollWidth > rolagem.clientWidth) {
+        rolagem.scrollLeft = diaInicial.offsetLeft - (horas ? horas.offsetWidth : 0);
+    }
+}
+
+// Visitas de um dia, em ordem de início: as que se cruzam formam um grupo e dividem a largura da
+// coluna; cada uma vai para a primeira faixa do grupo que já está livre no seu horário.
+function porLadoALado(visitas) {
+    var grupo = [];
+    var faixas = [];
+    var fimDoGrupo = -1;
+
+    function fecharGrupo() {
+        grupo.forEach(function (visita) {
+            visita.elemento.style.setProperty('--colunas', faixas.length);
+        });
+        grupo = [];
+        faixas = [];
+    }
+
+    visitas.forEach(function (visita) {
+        if (visita.inicio >= fimDoGrupo) {
+            fecharGrupo();
+            fimDoGrupo = -1;
+        }
+        var faixa = 0;
+        while (faixa < faixas.length && faixas[faixa] > visita.inicio) {
+            faixa++;
+        }
+        faixas[faixa] = visita.fim;
+        visita.elemento.style.setProperty('--coluna', faixa);
+        grupo.push(visita);
+        fimDoGrupo = Math.max(fimDoGrupo, visita.fim);
+    });
+    fecharGrupo();
 }
 
 // Formulário com data-confirmar="pergunta" só é enviado depois que o usuário confirma.
@@ -372,6 +530,12 @@ function buscarMaterial() {
                     campo.value = rotulo.value;
                     limpar();
                     if (proximo) {
+                        // Campo de quantidade com aviso de estoque passa a comparar com este material
+                        if (proximo.hasAttribute('data-aviso-estoque')) {
+                            proximo.setAttribute('data-disponivel', material.disponivel);
+                            proximo.setAttribute('data-unidade', material.unidade);
+                            conferirEstoque(proximo);
+                        }
                         proximo.focus();
                     }
                 });
@@ -404,6 +568,10 @@ function buscarMaterial() {
             // Texto mudou: o material escolhido antes deixa de valer
             alvo.value = '';
             rotulo.value = '';
+            if (proximo && proximo.hasAttribute('data-aviso-estoque')) {
+                proximo.removeAttribute('data-disponivel');
+                conferirEstoque(proximo);
+            }
             clearTimeout(espera);
             var termo = campo.value.trim();
             if (termo.length < 2) {
@@ -419,6 +587,68 @@ function buscarMaterial() {
             if (evento.key === 'Escape') {
                 limpar();
             }
+        });
+    });
+}
+
+// Campo de quantidade com data-aviso-estoque="idDoAviso" e data-disponivel (lista técnica, RF05):
+// quando a quantidade passa do disponível em estoque do material, mostra o aviso com quanto falta,
+// no [data-aviso-texto] dele. Só avisa: o que faltar vira faltante para cotação (RF08), então o
+// envio continua liberado. O servidor também avisa depois de gravar.
+function avisarAcimaDoEstoque() {
+    document.querySelectorAll('input[data-aviso-estoque]').forEach(function (campo) {
+        campo.addEventListener('input', function () {
+            conferirEstoque(campo);
+        });
+        conferirEstoque(campo);
+    });
+}
+
+function conferirEstoque(campo) {
+    var aviso = document.getElementById(campo.getAttribute('data-aviso-estoque'));
+    if (!aviso) {
+        return;
+    }
+    var disponivel = campo.getAttribute('data-disponivel');
+    var quantidade = Number(campo.value);
+    if (disponivel === null || disponivel === '' || campo.value === '' || !(quantidade > Number(disponivel))) {
+        aviso.hidden = true;
+        return;
+    }
+    var unidade = ' ' + (campo.getAttribute('data-unidade') || '');
+    var texto = aviso.querySelector('[data-aviso-texto]') || aviso;
+    texto.textContent = 'Acima do estoque (disponível: ' + formatarQuantidade(Number(disponivel)) + unidade
+        + '). Faltam ' + formatarQuantidade(quantidade - Number(disponivel)) + unidade + '.';
+    aviso.hidden = false;
+}
+
+// Quantidade como no Brasil, com até 3 casas: 1.250,5
+function formatarQuantidade(valor) {
+    return valor.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+}
+
+// Separação aos poucos (estoque/separacao.html, RF14): o botão data-preencher="idDoCampo" põe no
+// campo o que falta separar do item (data-valor), e data-preencher-tudo faz isso em todos os itens
+// do formulário. Nada é gravado até o almoxarife salvar.
+function preencherSeparacao() {
+    document.querySelectorAll('[data-preencher]').forEach(function (botao) {
+        botao.addEventListener('click', function () {
+            var campo = document.getElementById(botao.getAttribute('data-preencher'));
+            if (campo) {
+                campo.value = botao.getAttribute('data-valor');
+                campo.focus();
+            }
+        });
+    });
+    document.querySelectorAll('[data-preencher-tudo]').forEach(function (botao) {
+        botao.addEventListener('click', function () {
+            var formulario = botao.closest('form') || document;
+            formulario.querySelectorAll('[data-preencher]').forEach(function (item) {
+                var campo = document.getElementById(item.getAttribute('data-preencher'));
+                if (campo) {
+                    campo.value = item.getAttribute('data-valor');
+                }
+            });
         });
     });
 }

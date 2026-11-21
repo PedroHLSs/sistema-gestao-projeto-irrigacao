@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!--
+        Trilha de navegação no alto da página: onde o usuário está e como subir um nível. O app.js
+        destaca no menu o item do começo da trilha, para o menu e a trilha dizerem a mesma coisa.
+    -->
+
+    <!--
+        Telas de um projeto: Projetos › PRJ-2026-0001 › pagina. Na página do próprio projeto,
+        pagina vem nula e o código é o item atual.
+    -->
+    <nav th:fragment="projeto(projeto, pagina)" class="trilha" aria-label="Trilha de navegação">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/projetos}">Projetos</a></li>
+            <li th:if="${pagina != null}" class="breadcrumb-item"><a th:href="@{/projetos/{id}(id=${projeto.id})}" th:text="${projeto.codigo}">PRJ-2026-0001</a></li>
+            <li th:if="${pagina == null}" class="breadcrumb-item active" aria-current="page" th:text="${projeto.codigo}">PRJ-2026-0001</li>
+            <li th:if="${pagina != null}" class="breadcrumb-item active" aria-current="page" th:text="${pagina}">Orçamento</li>
+        </ol>
+    </nav>
+
+    <!-- Telas de uma lista que não é de projeto: rotulo (com o link para a lista) › pagina -->
+    <nav th:fragment="secao(rotulo, endereco, pagina)" class="trilha" aria-label="Trilha de navegação">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="${endereco}" th:text="${rotulo}">Materiais</a></li>
+            <li class="breadcrumb-item active" aria-current="page" th:text="${pagina}">Requisições de compra</li>
+        </ol>
+    </nav>
+</body>
+
+</html>

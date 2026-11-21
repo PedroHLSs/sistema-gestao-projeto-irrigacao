@@ -1,6 +1,7 @@
 package br.edu.iftm.irrigacao.persistencia;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,31 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long
     /** Ordens ainda abertas do projeto, para concluir no aceite (RF18). */
     List<OrdemServico> findByProjetoIdAndDataConclusaoIsNull(Long projetoId);
 
+    /** Ordens abertas do projeto cuja equipe ainda não concluiu a instalação, com os técnicos (RF16). */
+    @Query("""
+            select distinct o from OrdemServico o
+            left join fetch o.tecnicos
+            where o.projeto.id = :projetoId and o.dataConclusao is null and o.instalacaoConcluidaEm is null
+            order by o.numero
+            """)
+    List<OrdemServico> instalacaoPendente(@Param("projetoId") Long projetoId);
+
+    /**
+     * Ordens de todos os técnicos, com projeto, produtor e equipe, para quem acompanha a execução (RF15).
+     *
+     * @param incluirConcluidas {@code false} traz só as abertas
+     */
+    @Query("""
+            select distinct o from OrdemServico o
+            left join fetch o.tecnicos
+            join fetch o.projeto p
+            join fetch p.propriedade pr
+            join fetch pr.produtor
+            where :incluirConcluidas = true or o.dataConclusao is null
+            order by o.dataProgramada, o.id
+            """)
+    List<OrdemServico> listarParaAcompanhamento(@Param("incluirConcluidas") boolean incluirConcluidas);
+
     /** Ordem com projeto, propriedade, produtor e técnicos carregados, para a tela da ordem (RF15). */
     @Query("""
             select o from OrdemServico o
@@ -34,6 +60,15 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long
             where o.id = :id
             """)
     Optional<OrdemServico> buscarCompleta(@Param("id") Long id);
+
+    /** Ordens de vários projetos com os técnicos numa consulta, para a lista de projetos. */
+    @Query("""
+            select distinct o from OrdemServico o
+            left join fetch o.tecnicos
+            where o.projeto.id in :projetoIds
+            order by o.numero
+            """)
+    List<OrdemServico> listarDosProjetos(@Param("projetoIds") Collection<Long> projetoIds);
 
     /** Ordens do projeto com os técnicos, em ordem de número (RF15). */
     @Query("""

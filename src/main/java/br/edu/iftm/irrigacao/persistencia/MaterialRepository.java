@@ -89,4 +89,12 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
             where m.id = :id and m.saldoReservado >= :quantidade
             """)
     int baixarReserva(@Param("id") Long id, @Param("quantidade") BigDecimal quantidade);
+
+    /** Fim da reserva: reservado - quantidade, só se o reservado comportar. O saldo não muda. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update Material m set m.saldoReservado = m.saldoReservado - :quantidade
+            where m.id = :id and m.saldoReservado >= :quantidade
+            """)
+    int liberarReserva(@Param("id") Long id, @Param("quantidade") BigDecimal quantidade);
 }

@@ -2,10 +2,13 @@ package br.edu.iftm.irrigacao.dominio.execucao.impl;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -26,7 +29,8 @@ import br.edu.iftm.irrigacao.persistencia.ProjetoRepository;
 import br.edu.iftm.irrigacao.persistencia.UsuarioRepository;
 
 /**
- * Ordem de serviço (RF15) e as transições 8, 9 e 12 da Figura 5.
+ * Ordem de serviço (RF15) e as transições 8, 9 e 12 da Figura 5, com várias ordens abertas ao mesmo
+ * tempo no projeto (RF16).
  */
 @Service
 public class OrdemServicoServiceImpl implements OrdemServicoService {
@@ -63,7 +67,12 @@ public class OrdemServicoServiceImpl implements OrdemServicoService {
         // Linha travada antes de ler a situação: dois envios juntos não emitem duas ordens
         Projeto projeto = projetoRepository.buscarParaAlterarSituacao(projetoId)
                 .orElseThrow(() -> new RegistroNaoEncontradoException("Projeto não encontrado."));
-        ExecucaoRegras.exigirSituacao(projeto, SituacaoProjeto.PROGRAMANDO_EXECUCAO, "A ordem de serviço é emitida");
+        if (!podeEmitir(projeto)) {
+            throw new RegraNegocioException("A ordem de serviço é emitida com o projeto em \""
+                    + SituacaoProjeto.PROGRAMANDO_EXECUCAO.getRotulo() + "\" ou \""
+                    + SituacaoProjeto.EXECUTANDO_INSTALACAO.getRotulo() + "\". O projeto " + projeto.getCodigo()
+                    + " está em \"" + projeto.getSituacao().getRotulo() + "\".");
+        }
         if (dataProgramada == null || dataProgramada.isBefore(LocalDate.now(clock))) {
             throw new RegraNegocioException("Informe a data programada, de hoje em diante.");
         }
@@ -80,11 +89,21 @@ public class OrdemServicoServiceImpl implements OrdemServicoService {
         }
         List<OrdemServico> anteriores = ordemRepository.findByProjetoIdOrderByNumero(projetoId);
         int numero = anteriores.isEmpty() ? 1 : anteriores.get(anteriores.size() - 1).getNumero() + 1;
-        OrdemServico ordem = ordemRepository.save(new OrdemServico(null, projeto, numero, dataProgramada, null, tecnicos));
-        projetoService.transitar(projetoId, SituacaoProjeto.EXECUTANDO_INSTALACAO, "Ordem de serviço " + numero
-                + " emitida para " + DATA.format(dataProgramada) + " com "
-                + tecnicos.stream().map(Usuario::getNome).collect(Collectors.joining(", ")) + ".");
+        OrdemServico ordem = ordemRepository.save(new OrdemServico(null, projeto, numero, dataProgramada, null, null,
+                tecnicos));
+        // A primeira ordem começa a execução; as seguintes entram nela sem mudar a situação
+        if (projeto.getSituacao() == SituacaoProjeto.PROGRAMANDO_EXECUCAO) {
+            projetoService.transitar(projetoId, SituacaoProjeto.EXECUTANDO_INSTALACAO, "Ordem de serviço " + numero
+                    + " emitida para " + DATA.format(dataProgramada) + " com "
+                    + tecnicos.stream().map(Usuario::getNome).collect(Collectors.joining(", ")) + ".");
+        }
         return ordem;
+    }
+
+    @Override
+    public boolean podeEmitir(Projeto projeto) {
+        return projeto.getSituacao() == SituacaoProjeto.PROGRAMANDO_EXECUCAO
+                || projeto.getSituacao() == SituacaoProjeto.EXECUTANDO_INSTALACAO;
     }
 
     @Override
@@ -95,8 +114,33 @@ public class OrdemServicoServiceImpl implements OrdemServicoService {
 
     @Override
     @Transactional(readOnly = true)
+    public Map<Long, List<OrdemServico>> dosProjetos(Collection<Long> projetoIds) {
+        if (projetoIds.isEmpty()) {
+            return Map.of();
+        }
+        return ordemRepository.listarDosProjetos(projetoIds).stream()
+                .collect(Collectors.groupingBy(ordem -> ordem.getProjeto().getId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<OrdemServico> abertasDoTecnico(Long usuarioId) {
         return ordemRepository.abertasDoTecnico(usuarioId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrdemServico> acompanhamento(Long tecnicoId, boolean incluirConcluidas) {
+        return ordemRepository.listarParaAcompanhamento(incluirConcluidas).stream()
+                .filter(ordem -> tecnicoId == null
+                        || ordem.getTecnicos().stream().anyMatch(tecnico -> tecnico.getId().equals(tecnicoId)))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrdemServico> instalacaoPendente(Long projetoId) {
+        return ordemRepository.instalacaoPendente(projetoId);
     }
 
     @Override
@@ -123,8 +167,23 @@ public class OrdemServicoServiceImpl implements OrdemServicoService {
         OrdemServico ordem = buscarAberta(ordemId);
         ExecucaoRegras.exigirSituacao(ordem.getProjeto(), SituacaoProjeto.EXECUTANDO_INSTALACAO,
                 "A instalação é concluída");
-        projetoService.transitar(ordem.getProjeto().getId(), SituacaoProjeto.VALIDANDO_MEDICAO,
-                "Instalação concluída (ordem de serviço " + ordem.getNumero() + ").");
+        if (ordem.getInstalacaoConcluidaEm() != null) {
+            throw new RegraNegocioException("A instalação da ordem de serviço " + ordem.getNumero()
+                    + " já foi concluída.");
+        }
+        ordem.setInstalacaoConcluidaEm(LocalDateTime.now(clock));
+        ordemRepository.saveAndFlush(ordem);
+        // Com a linha do projeto travada em buscarAberta, a conta já enxerga o que outra equipe concluiu
+        Long projetoId = ordem.getProjeto().getId();
+        if (ordemRepository.instalacaoPendente(projetoId).isEmpty()) {
+            List<Integer> numeros = ordemRepository.findByProjetoIdAndDataConclusaoIsNull(projetoId).stream()
+                    .map(OrdemServico::getNumero)
+                    .sorted()
+                    .toList();
+            projetoService.transitar(projetoId, SituacaoProjeto.VALIDANDO_MEDICAO, numeros.size() == 1
+                    ? "Instalação concluída (ordem de serviço " + numeros.get(0) + ")."
+                    : "Instalação concluída (ordens de serviço " + juntar(numeros) + ").");
+        }
         return ordem;
     }
 
@@ -138,9 +197,18 @@ public class OrdemServicoServiceImpl implements OrdemServicoService {
         if (texto != null && texto.length() > 450) {
             throw new RegraNegocioException("O texto da correção pode ter até 450 caracteres.");
         }
+        // A equipe que registrou a correção volta a instalar e conclui de novo antes da nova medição
+        ordem.setInstalacaoConcluidaEm(null);
         projetoService.transitar(ordem.getProjeto().getId(), SituacaoProjeto.EXECUTANDO_INSTALACAO,
                 texto == null ? "Correção registrada." : "Correção registrada: " + texto);
         return ordem;
+    }
+
+    /** "1, 2 e 3". */
+    private static String juntar(List<Integer> numeros) {
+        String todos = numeros.stream().map(String::valueOf).collect(Collectors.joining(", "));
+        int ultima = todos.lastIndexOf(", ");
+        return ultima < 0 ? todos : todos.substring(0, ultima) + " e " + todos.substring(ultima + 2);
     }
 
     /**

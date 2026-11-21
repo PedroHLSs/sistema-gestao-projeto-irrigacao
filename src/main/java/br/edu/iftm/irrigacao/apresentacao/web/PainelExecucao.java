@@ -15,7 +15,6 @@ import br.edu.iftm.irrigacao.dominio.execucao.MedicaoService;
 import br.edu.iftm.irrigacao.dominio.execucao.OrdemServico;
 import br.edu.iftm.irrigacao.dominio.execucao.OrdemServicoService;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
-import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 
 /**
  * Dados da aba Execução da página do projeto (RF15 a RF19): ordens, apontamentos, medições com o
@@ -45,7 +44,8 @@ public class PainelExecucao {
         List<ApontamentoHoras> horas = apontamentoService.horasDoProjeto(id);
         List<SobraItem> sobras = sobrasService.sobras(id);
         List<OrdemServico> ordens = ordemServicoService.doProjeto(id);
-        boolean podeProgramar = projeto.getSituacao() == SituacaoProjeto.PROGRAMANDO_EXECUCAO;
+        // A primeira ordem sai na programação; com a execução em andamento, cabe outra equipe
+        boolean podeProgramar = ordemServicoService.podeEmitir(projeto);
         model.addAttribute("ordens", ordens);
         model.addAttribute("horasApontadas", horas);
         model.addAttribute("totalHoras", horas.stream().map(ApontamentoHoras::getHoras).reduce(BigDecimal.ZERO,

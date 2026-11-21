@@ -1,6 +1,7 @@
 package br.edu.iftm.irrigacao.dominio.projeto.impl;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,7 +21,6 @@ import br.edu.iftm.irrigacao.dominio.acesso.Usuario;
 import br.edu.iftm.irrigacao.dominio.comercial.Proposta;
 import br.edu.iftm.irrigacao.dominio.estoque.MovimentacaoEstoque;
 import br.edu.iftm.irrigacao.dominio.estoque.Quantidade;
-import br.edu.iftm.irrigacao.dominio.estoque.TipoMovimentacao;
 import br.edu.iftm.irrigacao.dominio.execucao.Aceite;
 import br.edu.iftm.irrigacao.dominio.execucao.ApontamentoHoras;
 import br.edu.iftm.irrigacao.dominio.execucao.ApontamentoMaterial;
@@ -31,6 +31,7 @@ import br.edu.iftm.irrigacao.dominio.projeto.EventoProjeto;
 import br.edu.iftm.irrigacao.dominio.projeto.HistoricoProjeto;
 import br.edu.iftm.irrigacao.dominio.projeto.Levantamento;
 import br.edu.iftm.irrigacao.dominio.projeto.LinhaDoTempoService;
+import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
 import br.edu.iftm.irrigacao.persistencia.AceiteRepository;
 import br.edu.iftm.irrigacao.persistencia.ApontamentoHorasRepository;
 import br.edu.iftm.irrigacao.persistencia.ApontamentoMaterialRepository;
@@ -104,7 +105,10 @@ public class LinhaDoTempoServiceImpl implements LinhaDoTempoService {
         }
         propostas.forEach(p -> eventos.add(EventoProjeto.deEtapa(p.getCriadoEm(), "Proposta " + p.getNumero() + " gerada",
                 detalheDaProposta(p), nomes.get(p.getCriadoPor()))));
-        movimentacaoRepository.listarPorProjetoComMaterial(projetoId).forEach(m -> adicionarMovimentacao(eventos, m));
+        List<HistoricoProjeto> historico = historicoRepository.listarPorProjeto(projetoId);
+        PeriodoDaInstalacao instalacao = PeriodoDaInstalacao.de(ordens, historico);
+        movimentacaoRepository.listarPorProjetoComMaterial(projetoId)
+                .forEach(m -> adicionarMovimentacao(eventos, m, instalacao));
         ordens.forEach(o -> eventos.add(EventoProjeto.deEtapa(o.getCriadoEm(), "OS " + o.getNumero() + " emitida",
                 detalheDaOrdem(o), nomes.get(o.getCriadoPor()))));
         horasRepository.listarPorProjeto(projetoId).forEach(a -> eventos.add(eventoDeHoras(a)));
@@ -114,7 +118,7 @@ public class LinhaDoTempoServiceImpl implements LinhaDoTempoService {
         pendencias.forEach(p -> eventos.add(EventoProjeto.deEtapa(p.getDataRegistro(),
                 "Pendência " + p.getTipo().getRotulo().toLowerCase(Locale.ROOT) + " registrada", p.getDescricao(),
                 nomes.get(p.getCriadoPor()))));
-        historicoRepository.listarPorProjeto(projetoId).forEach(h -> eventos.add(eventoDeHistorico(h)));
+        historico.forEach(h -> eventos.add(eventoDeHistorico(h)));
 
         // A ordenação é estável: no mesmo horário, vale a ordem em que os eventos entraram acima
         return eventos.stream()
@@ -138,10 +142,44 @@ public class LinhaDoTempoServiceImpl implements LinhaDoTempoService {
         return nomes;
     }
 
+    /**
+     * Da emissão da primeira ordem de serviço até a chegada a FINALIZANDO_EXECUCAO. Saída de estoque
+     * nesse período é material apontado além do separado (RF16), e devolução é essa baixa desfeita
+     * pela exclusão de um lançamento; fora dele são a separação e a sobra.
+     *
+     * @param inicio criação da primeira ordem; {@code null} sem ordem
+     * @param fim    primeira chegada a FINALIZANDO_EXECUCAO; {@code null} enquanto não chegou
+     */
+    private record PeriodoDaInstalacao(LocalDateTime inicio, LocalDateTime fim) {
+
+        static PeriodoDaInstalacao de(List<OrdemServico> ordens, List<HistoricoProjeto> historico) {
+            LocalDateTime inicio = ordens.stream()
+                    .map(OrdemServico::getCriadoEm)
+                    .filter(Objects::nonNull)
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+            LocalDateTime fim = historico.stream()
+                    .filter(h -> h.getSituacaoNova() == SituacaoProjeto.FINALIZANDO_EXECUCAO)
+                    .map(HistoricoProjeto::getDataHora)
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+            return new PeriodoDaInstalacao(inicio, fim);
+        }
+
+        boolean contem(LocalDateTime momento) {
+            return inicio != null && momento != null && momento.isAfter(inicio) && (fim == null || momento.isBefore(fim));
+        }
+    }
+
     /** Só a separação e a devolução entram na linha do tempo; reservas e compras não são etapas do projeto. */
-    private static void adicionarMovimentacao(List<EventoProjeto> eventos, MovimentacaoEstoque movimentacao) {
-        String titulo = movimentacao.getTipo() == TipoMovimentacao.SAIDA_PROJETO ? "Material separado"
-                : movimentacao.getTipo() == TipoMovimentacao.DEVOLUCAO ? "Sobra devolvida ao estoque" : null;
+    private static void adicionarMovimentacao(List<EventoProjeto> eventos, MovimentacaoEstoque movimentacao,
+            PeriodoDaInstalacao instalacao) {
+        boolean naInstalacao = instalacao.contem(movimentacao.getDataHora());
+        String titulo = switch (movimentacao.getTipo()) {
+            case SAIDA_PROJETO -> naInstalacao ? "Material usado além do separado baixado do estoque" : "Material separado";
+            case DEVOLUCAO -> naInstalacao ? "Baixa além do separado desfeita" : "Sobra devolvida ao estoque";
+            default -> null;
+        };
         if (titulo != null) {
             eventos.add(EventoProjeto.deEtapa(movimentacao.getDataHora(), titulo,
                     quantidade(movimentacao.getQuantidade(), movimentacao.getMaterial().getUnidade(),

@@ -9,6 +9,7 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, 'Sobras do projeto')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <div class="d-flex flex-wrap align-items-center gap-2 mb-1 page-title">
@@ -16,8 +17,7 @@
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </div>
         <p class="mb-4">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
         </p>
 
         <p th:if="${projeto.sobrasDevolvidas}" class="alert alert-success">As sobras deste projeto já foram tratadas.</p>

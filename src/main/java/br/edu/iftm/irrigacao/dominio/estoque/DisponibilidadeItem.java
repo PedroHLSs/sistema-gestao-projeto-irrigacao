@@ -51,4 +51,14 @@ public class DisponibilidadeItem {
     public BigDecimal getFaltante() {
         return faltante;
     }
+
+    /** O que já foi separado do item, somando todas as vezes que a separação foi gravada (RF14). */
+    public BigDecimal getSeparada() {
+        return item.getQuantidadeSeparada();
+    }
+
+    /** O que falta separar para chegar na prevista; zero quando já chegou. */
+    public BigDecimal getFaltaSeparar() {
+        return getPrevista().subtract(getSeparada()).max(BigDecimal.ZERO);
+    }
 }

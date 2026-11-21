@@ -6,7 +6,9 @@ import java.text.NumberFormat;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.edu.iftm.irrigacao.dominio.RegistroNaoEncontradoException;
 import br.edu.iftm.irrigacao.dominio.RegraNegocioException;
+import br.edu.iftm.irrigacao.dominio.acesso.Usuario;
 import br.edu.iftm.irrigacao.dominio.acesso.UsuarioLogado;
+import br.edu.iftm.irrigacao.dominio.comercial.EstimativaMaoDeObra;
 import br.edu.iftm.irrigacao.dominio.comercial.Orcamento;
 import br.edu.iftm.irrigacao.dominio.comercial.Orcamento.Linha;
 import br.edu.iftm.irrigacao.dominio.comercial.ParametrosComerciais;
@@ -33,13 +37,14 @@ import br.edu.iftm.irrigacao.dominio.estoque.Material;
 import br.edu.iftm.irrigacao.dominio.projeto.Projeto;
 import br.edu.iftm.irrigacao.dominio.projeto.ProjetoService;
 import br.edu.iftm.irrigacao.dominio.projeto.SituacaoProjeto;
+import br.edu.iftm.irrigacao.persistencia.LevantamentoRepository;
 import br.edu.iftm.irrigacao.persistencia.ProjetoRepository;
 import br.edu.iftm.irrigacao.persistencia.PropostaRepository;
 import br.edu.iftm.irrigacao.persistencia.UsuarioRepository;
 
 /**
- * Orçamento e proposta (RF09), alçada (RF10, G2), envio e validade (RF11) e resposta do cliente
- * (RF12, G3).
+ * Orçamento e proposta (RF09), alçada (RF10, G2), envio, validade e renegociação (RF11) e resposta
+ * do cliente (RF12, G3).
  */
 @Service
 public class PropostaServiceImpl implements PropostaService {
@@ -58,6 +63,7 @@ public class PropostaServiceImpl implements PropostaService {
     private final PropostaRepository propostaRepository;
     private final ProjetoRepository projetoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final LevantamentoRepository levantamentoRepository;
     private final EstoqueService estoqueService;
     private final CotacaoService cotacaoService;
     private final ProjetoService projetoService;
@@ -66,11 +72,13 @@ public class PropostaServiceImpl implements PropostaService {
     private final Clock clock;
 
     public PropostaServiceImpl(PropostaRepository propostaRepository, ProjetoRepository projetoRepository,
-            UsuarioRepository usuarioRepository, EstoqueService estoqueService, CotacaoService cotacaoService,
-            ProjetoService projetoService, UsuarioLogado usuarioLogado, ParametrosComerciais parametros, Clock clock) {
+            UsuarioRepository usuarioRepository, LevantamentoRepository levantamentoRepository,
+            EstoqueService estoqueService, CotacaoService cotacaoService, ProjetoService projetoService,
+            UsuarioLogado usuarioLogado, ParametrosComerciais parametros, Clock clock) {
         this.propostaRepository = propostaRepository;
         this.projetoRepository = projetoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.levantamentoRepository = levantamentoRepository;
         this.estoqueService = estoqueService;
         this.cotacaoService = cotacaoService;
         this.projetoService = projetoService;
@@ -91,6 +99,21 @@ public class PropostaServiceImpl implements PropostaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<EstimativaMaoDeObra> estimarMaoDeObra(Long projetoId) {
+        return levantamentoRepository.findByProjetoId(projetoId)
+                .map(levantamento -> levantamento.getAreaIrrigadaHa())
+                .filter(area -> area > 0)
+                .map(area -> {
+                    BigDecimal hectares = BigDecimal.valueOf(area);
+                    BigDecimal horas = hectares.multiply(parametros.getHorasPorHectare())
+                            .setScale(2, RoundingMode.HALF_UP)
+                            .min(HORAS_MAXIMAS);
+                    return new EstimativaMaoDeObra(hectares, parametros.getHorasPorHectare(), horas);
+                });
+    }
+
+    @Override
     @Transactional
     public Proposta gerar(Long projetoId, BigDecimal horasPrevistas, BigDecimal percentualDesconto) {
         Projeto projeto = buscarProjeto(projetoId);
@@ -102,7 +125,7 @@ public class PropostaServiceImpl implements PropostaService {
             throw new RegraNegocioException("O projeto " + projeto.getCodigo()
                     + " já tem uma proposta em elaboração ou na diretoria. Altere essa proposta em vez de gerar outra.");
         }
-        return novaVersao(projeto, horasPrevistas, percentualDesconto);
+        return novaVersao(projeto, horasPrevistas, percentualDesconto, false, null, null);
     }
 
     @Override
@@ -129,8 +152,34 @@ public class PropostaServiceImpl implements PropostaService {
 
     @Override
     @Transactional(readOnly = true)
+    public Map<Long, Proposta> ultimasDosProjetos(Collection<Long> projetoIds) {
+        if (projetoIds.isEmpty()) {
+            return Map.of();
+        }
+        // A consulta vem da versão mais nova para a mais antiga: fica a primeira de cada projeto
+        Map<Long, Proposta> ultimas = new HashMap<>();
+        for (Proposta proposta : propostaRepository.listarDosProjetos(projetoIds)) {
+            ultimas.putIfAbsent(proposta.getProjeto().getId(), proposta);
+        }
+        return ultimas;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Proposta> listarEmAndamento() {
         return propostaRepository.listarPorSituacoes(EM_ANDAMENTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Proposta> listarNaSituacao(SituacaoProposta situacao) {
+        return propostaRepository.listarPorSituacoes(EnumSet.of(situacao));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Proposta> listarTodas() {
+        return propostaRepository.listarPorSituacoes(EnumSet.allOf(SituacaoProposta.class));
     }
 
     @Override
@@ -268,7 +317,25 @@ public class PropostaServiceImpl implements PropostaService {
                 + ". Nova versão gerada com os preços atuais.");
         // recalcularPrecos() da Figura 9: mesma mão de obra e mesmo desconto, preços de hoje
         return Optional.of(novaVersao(buscarProjeto(projetoId), proposta.getHorasPrevistas(),
-                proposta.getPercentualDesconto()));
+                proposta.getPercentualDesconto(), false, null, null));
+    }
+
+    @Override
+    @Transactional
+    public Proposta renegociar(Long propostaId) {
+        Proposta proposta = buscarNaSituacao(propostaId, SituacaoProposta.ENVIADA, "renegociada");
+        if (vencida(proposta, LocalDate.now(clock))) {
+            throw new RegraNegocioException("A proposta " + proposta.getNumero() + " venceu: valia até "
+                    + DATA.format(proposta.getDataValidade()) + ". Abra a lista de propostas para ela ser refeita com "
+                    + "os preços atuais e ajuste a versão nova.");
+        }
+        proposta.setSituacao(SituacaoProposta.RENEGOCIADA);
+        Long projetoId = proposta.getProjeto().getId();
+        projetoService.transitar(projetoId, SituacaoProjeto.ORCANDO, "Proposta " + proposta.getNumero()
+                + " reaberta para renegociação a pedido do cliente. Nova versão gerada com os mesmos preços.");
+        // A aprovação da diretoria vale para o mesmo desconto: mudar o desconto na versão nova a desfaz
+        return novaVersao(buscarProjeto(projetoId), proposta.getHorasPrevistas(), proposta.getPercentualDesconto(),
+                true, proposta.getAprovadoPor(), proposta.getObservacaoDiretoria());
     }
 
     @Override
@@ -366,18 +433,33 @@ public class PropostaServiceImpl implements PropostaService {
         return new Orcamento(linhas, horas, parametros.getPrecoHora(), parametros.getCustoHora(), desconto);
     }
 
-    /** Proposta de número seguinte em EM_ELABORACAO, com os preços de hoje congelados nos itens. */
-    private Proposta novaVersao(Projeto projeto, BigDecimal horas, BigDecimal desconto) {
+    /**
+     * Proposta de número seguinte em EM_ELABORACAO.
+     *
+     * @param manterPrecos {@code false} congela nos itens os preços de venda de hoje (geração e
+     *                     vencimento); {@code true} mantém os preços já congelados (renegociação)
+     * @param aprovadoPor  quem da diretoria aprovou o desconto, quando ele continua valendo
+     * @param observacao   a resposta da diretoria que acompanha {@code aprovadoPor}
+     */
+    private Proposta novaVersao(Projeto projeto, BigDecimal horas, BigDecimal desconto, boolean manterPrecos,
+            Usuario aprovadoPor, String observacao) {
         exigirHoras(horas);
         exigirDesconto(desconto);
-        Orcamento orcamento = montar(projeto.getId(), horas, desconto, false);
-        orcamento.getLinhas().forEach(linha -> linha.getItem().setPrecoUnitario(linha.getPrecoUnitario()));
-        projeto.setCustoOrcado(orcamento.getCustoOrcado());
+        Orcamento atual = montar(projeto.getId(), horas, desconto, false);
+        BigDecimal valorTotal;
+        if (manterPrecos) {
+            valorTotal = montar(projeto.getId(), horas, desconto, true).getValorTotal();
+        } else {
+            atual.getLinhas().forEach(linha -> linha.getItem().setPrecoUnitario(linha.getPrecoUnitario()));
+            valorTotal = atual.getValorTotal();
+        }
+        projeto.setCustoOrcado(atual.getCustoOrcado());
         int numero = propostaRepository.findFirstByProjetoIdOrderByNumeroDesc(projeto.getId())
                 .map(anterior -> anterior.getNumero() + 1)
                 .orElse(1);
-        return propostaRepository.save(new Proposta(null, projeto, numero, orcamento.getValorTotal(), escala(desconto),
-                null, parametros.getValidadeDias(), SituacaoProposta.EM_ELABORACAO, escala(horas), null, null));
+        return propostaRepository.save(new Proposta(null, projeto, numero, valorTotal, escala(desconto),
+                null, parametros.getValidadeDias(), SituacaoProposta.EM_ELABORACAO, escala(horas),
+                aprovadoPor, aprovadoPor == null ? null : observacao));
     }
 
     /** Reserva, para cada item, o que ainda não foi reservado, até o disponível (G3). */

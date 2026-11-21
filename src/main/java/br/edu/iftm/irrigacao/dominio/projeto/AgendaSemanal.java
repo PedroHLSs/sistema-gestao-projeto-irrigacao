@@ -47,6 +47,14 @@ public class AgendaSemanal {
         return dias.stream().mapToInt(dia -> dia.getVisitas().size()).sum();
     }
 
+    /** Visitas da semana que o técnico já registrou como feitas. */
+    public int getTotalDeVisitasRealizadas() {
+        return (int) dias.stream()
+                .flatMap(dia -> dia.getVisitas().stream())
+                .filter(visita -> visita.getDataVisita() != null)
+                .count();
+    }
+
     /** Um dia da agenda e as visitas marcadas nele, em ordem de horário. */
     public static class DiaDaAgenda {
 

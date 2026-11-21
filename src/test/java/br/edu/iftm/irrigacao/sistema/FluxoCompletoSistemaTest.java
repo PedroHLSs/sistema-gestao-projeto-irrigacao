@@ -121,7 +121,7 @@ class FluxoCompletoSistemaTest extends ProcessoSistemaBase {
         passarTempo();
         separar(projetoId, tuboId, "20");
         separar(projetoId, gotejadorId, "400");
-        conferirSeparacao(projetoId);
+        liberarExecucao(projetoId);
         assertThat(situacao(projetoId)).isEqualTo(SituacaoProjeto.PROGRAMANDO_EXECUCAO);
         assertThat(projeto(projetoId).isSeparacaoConferida()).isTrue();
         conferirSaldo(tuboId, "30", "0");

@@ -39,10 +39,10 @@
             <h2 class="h5">Engenharia</h2>
             <div class="row g-3">
                 <div class="col-12 col-md-6">
-                    <a th:replace="~{fragments/encerramento :: indicador(${painel.projetista.levantamentosCompletos}, 'Levantamentos completos aguardando dimensionamento', @{/projetos(situacao='EM_LEVANTAMENTO')}, 'fa-compass-drafting')}"></a>
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.projetista.levantamentosCompletos}, 'Levantamentos completos aguardando dimensionamento', @{/engenharia}, 'fa-compass-drafting')}"></a>
                 </div>
                 <div class="col-12 col-md-6">
-                    <a th:replace="~{fragments/encerramento :: indicador(${painel.projetista.projetosEmProgramacao}, 'Projetos em programação da execução', @{/projetos(situacao='PROGRAMANDO_EXECUCAO')}, 'fa-calendar-plus')}"></a>
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.projetista.projetosEmProgramacao}, 'Projetos em programação da execução', @{/engenharia}, 'fa-calendar-plus')}"></a>
                 </div>
             </div>
         </section>
@@ -55,10 +55,10 @@
                     <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.requisicoesAbertas}, 'Requisições de compra abertas', @{/estoque/requisicoes}, 'fa-truck-fast')}"></a>
                 </div>
                 <div class="col-12 col-md-4">
-                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.separacoesPendentes}, 'Separações pendentes', @{/projetos(situacao='PREPARANDO_MATERIAL')}, 'fa-dolly')}"></a>
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.separacoesPendentes}, 'Separações pendentes', @{/estoque/fila}, 'fa-dolly')}"></a>
                 </div>
                 <div class="col-12 col-md-4">
-                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.sobrasAReceber}, 'Sobras a receber', @{/projetos(situacao='FINALIZANDO_EXECUCAO')}, 'fa-box-open')}"></a>
+                    <a th:replace="~{fragments/encerramento :: indicador(${painel.estoque.sobrasAReceber}, 'Sobras a receber', @{/estoque/fila}, 'fa-box-open')}"></a>
                 </div>
             </div>
         </section>

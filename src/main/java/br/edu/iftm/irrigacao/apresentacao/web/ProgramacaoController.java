@@ -23,8 +23,8 @@ import jakarta.validation.Valid;
 
 /**
  * Programação da equipe e emissão da ordem de serviço (RF15, atividade 11), sob {@code /engenharia}
- * (PROJETISTA e ADMINISTRADOR). Com o projeto fora de PROGRAMANDO_EXECUCAO a tela só lista as
- * ordens já emitidas.
+ * (PROJETISTA e ADMINISTRADOR). A primeira ordem sai em PROGRAMANDO_EXECUCAO; com a execução em
+ * andamento dá para emitir outras, uma por equipe ou etapa. Fora disso a tela só lista as ordens.
  */
 @Controller
 @RequestMapping("/engenharia/projetos/{id:\\d+}/programacao")
@@ -54,9 +54,13 @@ public class ProgramacaoController {
         if (resultado.hasErrors()) {
             return tela(model, projetoService.buscarPorId(id));
         }
+        boolean primeira = projetoService.buscarPorId(id).getSituacao() == SituacaoProjeto.PROGRAMANDO_EXECUCAO;
         OrdemServico ordem = ordemServicoService.emitir(id, form.getDataProgramada(), form.getTecnicos());
-        redirect.addFlashAttribute("sucesso", "Ordem de serviço " + ordem.getNumero() + " emitida. O projeto está em \""
-                + SituacaoProjeto.EXECUTANDO_INSTALACAO.getRotulo() + "\" e a ordem aparece em \"Minhas OS\" de cada técnico.");
+        redirect.addFlashAttribute("sucesso", primeira
+                ? "Ordem de serviço " + ordem.getNumero() + " emitida. O projeto está em \""
+                        + SituacaoProjeto.EXECUTANDO_INSTALACAO.getRotulo() + "\" e a ordem aparece em \"Minhas OS\" de cada técnico."
+                : "Ordem de serviço " + ordem.getNumero() + " emitida e somada à execução em andamento. A medição só "
+                        + "começa quando todas as ordens concluírem a instalação.");
         return ProjetoController.paginaDoProjeto(id);
     }
 
@@ -64,7 +68,8 @@ public class ProgramacaoController {
         model.addAttribute("projeto", projeto);
         model.addAttribute("tecnicos", ordemServicoService.tecnicosDisponiveis());
         model.addAttribute("ordens", ordemServicoService.doProjeto(projeto.getId()));
-        model.addAttribute("podeEmitir", projeto.getSituacao() == SituacaoProjeto.PROGRAMANDO_EXECUCAO);
+        model.addAttribute("podeEmitir", ordemServicoService.podeEmitir(projeto));
+        model.addAttribute("emExecucao", projeto.getSituacao() == SituacaoProjeto.EXECUTANDO_INSTALACAO);
         model.addAttribute("hoje", LocalDate.now(clock));
         return TELA;
     }

@@ -9,7 +9,7 @@ import java.math.BigDecimal;
  * <pre>
  * ENTRADA_COMPRA  saldo + q
  * AJUSTE          saldo + q   (q é a diferença e pode ser negativa)
- * RESERVA         reservado + q
+ * RESERVA         reservado + q   (q negativa: reserva que não saiu e voltou ao disponível)
  * SAIDA_PROJETO   saldo - q e reservado - q
  * DEVOLUCAO       saldo + q
  * </pre>

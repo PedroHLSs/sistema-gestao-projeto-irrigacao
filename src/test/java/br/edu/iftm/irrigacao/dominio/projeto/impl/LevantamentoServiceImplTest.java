@@ -194,6 +194,7 @@ class LevantamentoServiceImplTest {
         Levantamento quartaCedo = levantamento(projeto, LocalDateTime.of(2026, 11, 18, 7, 0));
         Levantamento quartaTarde = levantamento(projeto, LocalDateTime.of(2026, 11, 18, 15, 0));
         Levantamento domingo = levantamento(projeto, LocalDateTime.of(2026, 11, 22, 23, 59));
+        quartaCedo.setDataVisita(LocalDateTime.of(2026, 11, 18, 7, 10));
         when(levantamentoRepository.listarAgendadosEntre(LocalDateTime.of(2026, 11, 16, 0, 0),
                 LocalDateTime.of(2026, 11, 23, 0, 0))).thenReturn(List.of(quartaCedo, quartaTarde, domingo));
 
@@ -214,6 +215,7 @@ class LevantamentoServiceImplTest {
         assertThat(agenda.getDias()).extracting(DiaDaAgenda::isHoje)
                 .containsExactly(false, false, true, false, false, false, false);
         assertThat(agenda.getTotalDeVisitas()).isEqualTo(3);
+        assertThat(agenda.getTotalDeVisitasRealizadas()).isEqualTo(1);
     }
 
     @Test

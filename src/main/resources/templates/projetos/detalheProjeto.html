@@ -8,6 +8,7 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, null)}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <!-- Cabeçalho do projeto -->
@@ -15,6 +16,26 @@
             <h1 class="h2 mb-0 me-2" th:text="${projeto.codigo}">PRJ-2026-0001</h1>
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </div>
+
+        <!--
+            Próximo passo (ProximoPasso): todo perfil vê o que falta e com quem está; o botão, só quem
+            pode fazer o passo. Encerrado ou cancelado, o projeto não tem próximo passo.
+        -->
+        <section th:if="${proximoPasso != null}" class="proximo-passo mb-3"
+            th:classappend="${proximoPasso.acao != null} ? 'proximo-passo-comigo'" aria-labelledby="proximoPassoTitulo">
+            <div>
+                <h2 id="proximoPassoTitulo" class="h6 mb-1">
+                    <span class="proximo-passo-rotulo">Próximo passo:</span>
+                    <span th:text="${proximoPasso.titulo}">separar e conferir o material da lista técnica</span>
+                </h2>
+                <p class="mb-0 small">
+                    <span th:text="${proximoPasso.acao != null} ? |Com ${proximoPasso.responsavel}.| : |Aguardando ${proximoPasso.responsavel}.|">Aguardando o almoxarifado.</span>
+                    <span th:if="${proximoPasso.detalhe != null}" th:text="${proximoPasso.detalhe}">Visita agendada.</span>
+                </p>
+            </div>
+            <a th:if="${proximoPasso.acao != null}" th:href="@{${proximoPasso.acao.url}}" class="btn btn-primary"
+                th:text="${proximoPasso.acao.rotulo}">Abrir a separação</a>
+        </section>
 
         <div class="card shadow-sm mb-4">
             <div class="card-body">
@@ -57,36 +78,33 @@
         </div>
 
         <div class="row g-4">
-            <!-- Abas das fases do projeto. Cada aba só mostra as ações que a situação atual permite. -->
-            <div class="col-12 col-lg-8">
+            <!--
+                Abas das fases do projeto. Cada aba só mostra as ações que a situação atual permite.
+                A página abre na aba da fase atual (AbaProjeto); o fim do endereço (#proposta, #execucao...)
+                escolhe outra, e o app.js mantém o endereço igual à aba aberta. Cada aba mostra o estado
+                da sua fase: o visto na concluída, o ponto na atual e o texto mais claro na pendente.
+            -->
+            <div class="col-12 col-xl-9" th:with="aba=${abaAtual.nome}">
                 <ul class="nav nav-tabs abas-projeto" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="aba-levantamento-tab" data-bs-toggle="tab"
-                            data-bs-target="#aba-levantamento" type="button" role="tab" aria-controls="aba-levantamento"
-                            aria-selected="true">Levantamento</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="aba-lista-tab" data-bs-toggle="tab" data-bs-target="#aba-lista"
-                            type="button" role="tab" aria-controls="aba-lista" aria-selected="false">Lista técnica</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="aba-proposta-tab" data-bs-toggle="tab" data-bs-target="#aba-proposta"
-                            type="button" role="tab" aria-controls="aba-proposta" aria-selected="false">Proposta</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="aba-execucao-tab" data-bs-toggle="tab" data-bs-target="#aba-execucao"
-                            type="button" role="tab" aria-controls="aba-execucao" aria-selected="false">Execução</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="aba-encerramento-tab" data-bs-toggle="tab"
-                            data-bs-target="#aba-encerramento" type="button" role="tab" aria-controls="aba-encerramento"
-                            aria-selected="false">Encerramento</button>
+                    <li class="nav-item" role="presentation" th:each="item : ${abas}" th:with="nome=${item.aba.nome}">
+                        <button class="nav-link" th:classappend="${item.aba == abaAtual} ? 'active'"
+                            th:id="|aba-${nome}-tab|" th:data-aba="${nome}" data-bs-toggle="tab"
+                            th:data-bs-target="|#aba-${nome}|" type="button" role="tab" th:aria-controls="|aba-${nome}|"
+                            th:aria-selected="${item.aba == abaAtual}">
+                            <i th:if="${item.concluida}" class="bi bi-check-circle-fill aba-marca aba-concluida"
+                                aria-hidden="true"></i>
+                            <span th:if="${item.atual}" class="aba-marca aba-atual" aria-hidden="true"></span>
+                            <span th:text="${item.aba.rotulo}"
+                                th:classappend="${item.atual} ? 'fw-semibold' : (${item.concluida} ? null : 'aba-pendente')">Levantamento</span>
+                            <span th:if="${item.concluida}" class="visually-hidden">(concluída)</span>
+                            <span th:if="${item.atual}" class="visually-hidden">(fase atual)</span>
+                        </button>
                     </li>
                 </ul>
 
                 <div class="tab-content bg-white border border-top-0 rounded-bottom shadow-sm p-3 p-md-4">
-                    <div class="tab-pane fade show active" id="aba-levantamento" role="tabpanel"
-                        aria-labelledby="aba-levantamento-tab">
+                    <div class="tab-pane fade" th:classappend="${aba == 'levantamento'} ? 'show active'"
+                        id="aba-levantamento" role="tabpanel" aria-labelledby="aba-levantamento-tab">
                         <h2 class="h5">Visita técnica</h2>
                         <p th:if="${levantamento == null or levantamento.dataAgendada == null}" class="text-muted">
                             A visita ainda não foi agendada.</p>
@@ -165,7 +183,8 @@
                             </a>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="aba-lista" role="tabpanel" aria-labelledby="aba-lista-tab">
+                    <div class="tab-pane fade" th:classappend="${aba == 'lista'} ? 'show active'"
+                        id="aba-lista" role="tabpanel" aria-labelledby="aba-lista-tab">
                         <h2 class="h5">Parâmetros de projeto</h2>
                         <dl class="row dados-projeto">
                             <div class="col-4">
@@ -189,8 +208,6 @@
                                     <tr>
                                         <th scope="col">Material</th>
                                         <th scope="col" class="text-end">Prevista</th>
-                                        <th scope="col" class="text-end">Reservada</th>
-                                        <th scope="col" class="text-end">Separada</th>
                                         <th scope="col" class="text-end">Subtotal</th>
                                     </tr>
                                 </thead>
@@ -203,16 +220,12 @@
                                         <td class="text-end text-nowrap"
                                             th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadePrevista)} ${i.material.unidade}|">10 barra</td>
                                         <td class="text-end text-nowrap"
-                                            th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(reservadas[i.id])}">10</td>
-                                        <td class="text-end text-nowrap"
-                                            th:text="${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(i.quantidadeSeparada)}">0</td>
-                                        <td class="text-end text-nowrap"
                                             th:text="${i.material.precoVenda != null} ? |R$ ${#numbers.formatDecimal(i.quantidadePrevista.multiply(i.material.precoVenda), 1, 'POINT', 2, 'COMMA')}| : '—'">R$ 629,00</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <th scope="row" colspan="4" class="text-end">Total estimado (preço de venda atual)</th>
+                                        <th scope="row" colspan="2" class="text-end">Total estimado (preço de venda atual)</th>
                                         <td class="text-end text-nowrap fw-bold"
                                             th:text="|R$ ${#numbers.formatDecimal(total, 1, 'POINT', 2, 'COMMA')}|">R$ 629,00</td>
                                     </tr>
@@ -225,14 +238,11 @@
                         </p>
                         <a th:if="${podeDimensionar}" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')"
                             th:href="@{/engenharia/projetos/{id}/dimensionamento(id=${projeto.id})}" class="btn btn-primary">
-                            <i class="fas fa-compass-drafting me-2"></i>Dimensionar e montar a lista
-                        </a>
-                        <a th:if="${preparandoMaterial}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')"
-                            th:href="@{/estoque/projetos/{id}/separacao(id=${projeto.id})}" class="btn btn-primary">
-                            <i class="fas fa-dolly me-2"></i>Requisição e separação
+                            <i class="fas fa-compass-drafting me-2"></i>Dimensionar
                         </a>
                     </div>
-                    <div class="tab-pane fade" id="aba-proposta" role="tabpanel" aria-labelledby="aba-proposta-tab">
+                    <div class="tab-pane fade" th:classappend="${aba == 'proposta'} ? 'show active'"
+                        id="aba-proposta" role="tabpanel" aria-labelledby="aba-proposta-tab">
                         <h2 class="h5">Propostas</h2>
                         <p th:if="${#lists.isEmpty(propostas)}" class="text-muted">Nenhuma proposta.</p>
                         <div th:unless="${#lists.isEmpty(propostas)}" class="table-responsive mb-2">
@@ -279,14 +289,94 @@
                             </a>
                         </div>
                     </div>
+                    <!--
+                        Aba Material (RF07, RF08, RF13, RF14): o que foi reservado na aprovação da proposta, o
+                        que falta comprar e o andamento da separação, até a conferência tirar o material do estoque
+                    -->
+                    <div class="tab-pane fade" th:classappend="${aba == 'material'} ? 'show active'"
+                        id="aba-material" role="tabpanel" aria-labelledby="aba-material-tab"
+                        th:with="qtd=${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade)}">
+                        <p th:if="${cancelado}" class="text-muted mb-0">O projeto foi cancelado antes desta fase.</p>
+                        <p th:unless="${materialComecou or cancelado}" class="text-muted mb-0">
+                            O material da lista técnica é reservado quando o cliente aprova a proposta. Depois, o
+                            almoxarifado separa os itens e libera a execução: a obra pode começar com parte do material,
+                            e o restante é separado durante a instalação.</p>
+                        <th:block th:if="${materialComecou}">
+                            <h2 class="h5">Separação</h2>
+                            <p th:if="${projeto.separacaoConferida}" class="mb-2"
+                                th:text="${progressoSeparacao.completa}
+                                    ? 'Execução liberada e todo o material separado: ele saiu do estoque para o projeto.'
+                                    : 'Execução liberada com parte do material. O que já foi separado saiu do estoque; o restante continua reservado e é separado durante a instalação.'">
+                                Execução liberada com parte do material.</p>
+                            <th:block th:unless="${projeto.separacaoConferida and progressoSeparacao.completa}">
+                                <p class="mb-2"
+                                    th:text="|${progressoSeparacao.completos} de ${progressoSeparacao.total} itens separados por completo.|">
+                                    1 de 2 itens separados por completo.</p>
+                                <div class="progress mb-3" role="progressbar" aria-label="Itens separados por completo"
+                                    aria-valuemin="0" aria-valuemax="100" th:attr="aria-valuenow=${progressoSeparacao.percentual}">
+                                    <div class="progress-bar bg-success" th:style="|width: ${progressoSeparacao.percentual}%|"></div>
+                                </div>
+                            </th:block>
+
+                            <!-- G4: o que a reserva e o estoque não cobrem é cotado e comprado pelo comprador -->
+                            <div th:if="${separacaoAberta and itensFaltantes > 0}" class="alert alert-warning"
+                                th:text="${itensFaltantes == 1}
+                                    ? '1 item não tem estoque suficiente. O comprador registra a cotação e a requisição de compra; a separação desse item é liberada quando o material chega.'
+                                    : |${itensFaltantes} itens não têm estoque suficiente. O comprador registra as cotações e as requisições de compra; a separação de cada item é liberada quando o material chega.|">
+                                2 itens não têm estoque suficiente.</div>
+
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Material</th>
+                                            <th scope="col" class="text-end">Prevista</th>
+                                            <th scope="col" class="text-end">Reservada</th>
+                                            <th scope="col" class="text-end">Separada</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="d : ${disponibilidade}">
+                                            <td>
+                                                <span class="fw-semibold" th:text="${d.material.codigo}">TB-PVC-050</span>
+                                                <span class="small text-muted" th:text="${d.material.descricao}">Tubo PVC</span>
+                                            </td>
+                                            <td class="text-end text-nowrap"
+                                                th:text="|${qtd.formatar(d.prevista)} ${d.material.unidade}|">10 barra</td>
+                                            <td class="text-end text-nowrap" th:text="${qtd.formatar(d.reservadaParaProjeto)}">10</td>
+                                            <td class="text-end text-nowrap" th:text="${qtd.formatar(d.separada)}">0</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2">
+                                <a th:if="${separacaoAberta and !progressoSeparacao.completa}"
+                                    sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')"
+                                    th:href="@{/estoque/projetos/{id}/separacao(id=${projeto.id})}" class="btn btn-primary">
+                                    <i class="fas fa-dolly me-2"></i>Abrir a separação
+                                </a>
+                                <a th:if="${separacaoAberta and itensFaltantes > 0}"
+                                    sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'COMPRADOR', 'ADMINISTRADOR')"
+                                    th:href="@{/comercial/projetos/{id}/faltantes(id=${projeto.id})}" class="btn btn-outline-primary">
+                                    <i class="fas fa-truck-fast me-2"></i>Faltantes e cotações
+                                </a>
+                            </div>
+                        </th:block>
+                    </div>
                     <!-- Aba Execução (RF15 a RF19): ordens, apontamentos, medições, aceite, pendências e sobras -->
-                    <div class="tab-pane fade" id="aba-execucao" role="tabpanel" aria-labelledby="aba-execucao-tab">
-                        <p th:unless="${execucaoComecou}" class="text-muted mb-0">A execução ainda não começou.</p>
+                    <div class="tab-pane fade" th:classappend="${aba == 'execucao'} ? 'show active'"
+                        id="aba-execucao" role="tabpanel" aria-labelledby="aba-execucao-tab">
+                        <p th:if="${cancelado}" class="text-muted mb-0">O projeto foi cancelado antes desta fase.</p>
+                        <p th:unless="${execucaoComecou or cancelado}" class="text-muted mb-0">
+                            A execução começa quando o almoxarifado libera o material, com pelo menos um item separado, e
+                            a engenharia programa a instalação e emite a ordem de serviço.</p>
                         <th:block th:if="${execucaoComecou}">
                             <div class="d-flex flex-wrap gap-2 mb-3">
                                 <a th:if="${podeProgramar}" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')"
                                     th:href="@{/engenharia/projetos/{id}/programacao(id=${projeto.id})}" class="btn btn-primary">
-                                    <i class="fas fa-calendar-plus me-2"></i>Programar execução
+                                    <i class="fas fa-calendar-plus me-2"></i><span
+                                        th:text="${projeto.situacao.name() == 'EXECUTANDO_INSTALACAO'} ? 'Emitir outra OS' : 'Programar execução'">Programar execução</span>
                                 </a>
                                 <a th:if="${podeDevolverSobras}" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')"
                                     th:href="@{/estoque/projetos/{id}/sobras(id=${projeto.id})}" class="btn btn-primary">
@@ -304,7 +394,7 @@
                                         class="fw-semibold" th:text="|OS ${o.numero}|">OS 1</span>
                                     <span th:text="|· programada para ${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}|">· programada para 16/11/2026</span>
                                     <div class="small" th:text="${#strings.listJoin(o.tecnicos.![nome], ', ')}">Técnicos</div>
-                                    <div class="small text-muted" th:text="${o.dataConclusao != null} ? |Concluída em ${#temporals.format(o.dataConclusao, 'dd/MM/yyyy')}| : 'Aberta'">Aberta</div>
+                                    <div th:replace="~{fragments/execucao :: estadoDaOrdem(${o})}">Aberta</div>
                                 </li>
                             </ul>
 
@@ -418,9 +508,26 @@
                             </th:block>
                         </th:block>
                     </div>
-                    <div class="tab-pane fade" id="aba-encerramento" role="tabpanel"
-                        aria-labelledby="aba-encerramento-tab">
-                        <p th:unless="${encerrado}" class="text-muted mb-0">O projeto não foi encerrado.</p>
+                    <div class="tab-pane fade" th:classappend="${aba == 'encerramento'} ? 'show active'"
+                        id="aba-encerramento" role="tabpanel" aria-labelledby="aba-encerramento-tab">
+                        <!-- RF20: o financeiro libera o faturamento depois do aceite e das sobras, e o projeto se encerra -->
+                        <th:block th:unless="${encerrado}">
+                            <th:block th:if="${podeLiberarFaturamento}">
+                                <h2 class="h5">Liberação do faturamento</h2>
+                                <p>A instalação foi aceita pelo cliente e as sobras foram tratadas. Ao liberar o
+                                    faturamento, o financeiro registra a garantia e o projeto é encerrado.</p>
+                                <a sec:authorize="hasAnyAuthority('FINANCEIRO', 'ADMINISTRADOR')"
+                                    th:href="@{/financeiro/liberacoes/{id}(id=${projeto.id})}" class="btn btn-primary">
+                                    <i class="fas fa-file-invoice-dollar me-2"></i>Liberar faturamento
+                                </a>
+                            </th:block>
+                            <p th:if="${finalizando and !podeLiberarFaturamento}" class="text-muted mb-0">
+                                O faturamento é liberado pelo financeiro depois que o almoxarifado tratar as sobras.</p>
+                            <p th:if="${cancelado}" class="text-muted mb-0">O projeto foi cancelado antes desta fase.</p>
+                            <p th:unless="${finalizando or cancelado}" class="text-muted mb-0">
+                                O encerramento vem depois do aceite do cliente e das sobras tratadas: o financeiro libera o
+                                faturamento, registra a garantia e o projeto é encerrado.</p>
+                        </th:block>
                         <th:block th:if="${encerrado}" th:with="moeda=${T(br.edu.iftm.irrigacao.dominio.projeto.Moeda)}, qtd=${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade)}">
                             <h2 class="h5">Faturamento e garantia</h2>
                             <dl class="row dados-projeto">
@@ -545,7 +652,7 @@
             </div>
 
             <!-- Linha do tempo: mudanças de situação e registros de cada etapa (RF21) -->
-            <div class="col-12 col-lg-4">
+            <div class="col-12 col-xl-3">
                 <h2 class="h5">Linha do tempo</h2>
                 <ol class="linha-tempo">
                     <li th:each="e : ${linhaDoTempo}">

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Página da engenharia (RF05, RF15): o que espera o projetista, em três filas -->
+<head th:replace="~{fragments/head :: head('Fila da engenharia')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Fila da engenharia</h1>
+
+        <!-- Levantamento completo (G1): falta o dimensionamento ou a lista técnica -->
+        <section class="mb-4" aria-labelledby="filaDimensionamento">
+            <h2 class="h5" id="filaDimensionamento">
+                Aguardando dimensionamento
+                <span class="badge text-bg-secondary ms-1" th:text="${#lists.size(fila.aguardandoDimensionamento)}">0</span>
+            </h2>
+            <p class="form-text mt-0">Levantamento completo. Informe pressão e vazão de projeto e monte a lista técnica.</p>
+            <p th:if="${#lists.isEmpty(fila.aguardandoDimensionamento)}" class="text-muted">Nenhum levantamento esperando.</p>
+            <div th:unless="${#lists.isEmpty(fila.aguardandoDimensionamento)}"
+                class="table-responsive bg-white border rounded shadow-sm">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Projeto</th>
+                            <th scope="col">Produtor e propriedade</th>
+                            <th scope="col">Cultura</th>
+                            <th scope="col" class="text-end">Área irrigada</th>
+                            <th scope="col">Dimensionamento</th>
+                            <th scope="col"><span class="visually-hidden">Ação</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="l : ${fila.aguardandoDimensionamento}" th:with="p=${l.projeto}">
+                            <td class="text-nowrap">
+                                <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                            </td>
+                            <td>
+                                <div th:text="${p.propriedade.produtor.nome}">Produtor</div>
+                                <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda</div>
+                            </td>
+                            <td th:text="${l.cultura}">Café</td>
+                            <td class="text-end text-nowrap"
+                                th:text="|${#numbers.formatDecimal(l.areaIrrigadaHa, 1, 'POINT', 2, 'COMMA')} ha|">12,50 ha</td>
+                            <td>
+                                <span th:if="${p.pressaoProjetoMca != null}" class="badge text-bg-info">Informado</span>
+                                <span th:if="${p.pressaoProjetoMca == null}" class="badge text-bg-light border">Pendente</span>
+                            </td>
+                            <td class="text-end">
+                                <a th:href="@{/engenharia/projetos/{id}/dimensionamento(id=${p.id})}" class="btn btn-sm btn-primary text-nowrap">
+                                    <i class="fas fa-compass-drafting me-1"></i>Dimensionar
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Execução liberada pelo almoxarifado (G5): falta emitir a primeira ordem de serviço -->
+        <section class="mb-4" aria-labelledby="filaProgramacao">
+            <h2 class="h5" id="filaProgramacao">
+                Programação da execução
+                <span class="badge text-bg-secondary ms-1" th:text="${#lists.size(fila.emProgramacao)}">0</span>
+            </h2>
+            <p class="form-text mt-0">Material liberado pelo almoxarifado. Escolha a data e os técnicos e emita a ordem de serviço.</p>
+            <p th:if="${#lists.isEmpty(fila.emProgramacao)}" class="text-muted">Nenhum projeto esperando a programação.</p>
+            <ul th:unless="${#lists.isEmpty(fila.emProgramacao)}" class="list-group shadow-sm">
+                <li th:each="p : ${fila.emProgramacao}"
+                    class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                        · <span th:text="${p.propriedade.produtor.nome}">Produtor</span>
+                        <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda</div>
+                    </div>
+                    <a th:href="@{/engenharia/projetos/{id}/programacao(id=${p.id})}" class="btn btn-sm btn-primary text-nowrap">
+                        <i class="fas fa-calendar-plus me-1"></i>Programar execução
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Execução em andamento: cabe outra ordem de serviço para uma equipe ou etapa a mais -->
+        <section class="mb-4" aria-labelledby="filaExecucao">
+            <h2 class="h5" id="filaExecucao">
+                Em execução
+                <span class="badge text-bg-secondary ms-1" th:text="${#lists.size(fila.emExecucao)}">0</span>
+            </h2>
+            <p class="form-text mt-0">Instalação em andamento. Emita outra ordem de serviço se precisar de mais uma equipe.</p>
+            <p th:if="${#lists.isEmpty(fila.emExecucao)}" class="text-muted">Nenhum projeto em execução.</p>
+            <ul th:unless="${#lists.isEmpty(fila.emExecucao)}" class="list-group shadow-sm">
+                <li th:each="p : ${fila.emExecucao}"
+                    class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                        · <span th:text="${p.propriedade.produtor.nome}">Produtor</span>
+                        <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda</div>
+                    </div>
+                    <a th:href="@{/engenharia/projetos/{id}/programacao(id=${p.id})}" class="btn btn-sm btn-outline-primary text-nowrap">
+                        <i class="fas fa-plus me-1"></i>Emitir outra OS
+                    </a>
+                </li>
+            </ul>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

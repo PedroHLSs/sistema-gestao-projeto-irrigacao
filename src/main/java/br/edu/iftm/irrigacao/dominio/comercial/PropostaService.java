@@ -1,7 +1,9 @@
 package br.edu.iftm.irrigacao.dominio.comercial;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -19,6 +21,12 @@ public interface PropostaService {
 
     /** Detalhamento com os preços e custos atuais, sem gravar nada: a prévia antes de gerar (RF09). */
     Orcamento simular(Long projetoId, BigDecimal horasPrevistas, BigDecimal percentualDesconto);
+
+    /**
+     * Horas de mão de obra sugeridas para o orçamento (RF09): área irrigada do levantamento vezes
+     * {@code irrigacao.mao-obra.horas-por-hectare}. Vazio quando o levantamento não tem área.
+     */
+    Optional<EstimativaMaoDeObra> estimarMaoDeObra(Long projetoId);
 
     /**
      * Gera a proposta de número seguinte em EM_ELABORACAO: congela {@code precoUnitario} de cada item
@@ -39,8 +47,17 @@ public interface PropostaService {
     /** Todas as versões do orçamento do projeto, da mais nova para a mais antiga. */
     List<Proposta> listarDoProjeto(Long projetoId);
 
+    /** A versão mais nova da proposta de cada projeto que já tem uma, por id do projeto, numa consulta só. */
+    Map<Long, Proposta> ultimasDosProjetos(Collection<Long> projetoIds);
+
     /** Propostas em elaboração, na diretoria ou enviadas, para a lista do comercial. */
     List<Proposta> listarEmAndamento();
+
+    /** Propostas numa situação, para o filtro da lista do comercial. */
+    List<Proposta> listarNaSituacao(SituacaoProposta situacao);
+
+    /** Todas as propostas, de todas as versões, para o filtro da lista do comercial. */
+    List<Proposta> listarTodas();
 
     /** Propostas em AGUARDANDO_DIRETORIA (RF10). */
     List<Proposta> pendentesDaDiretoria();
@@ -94,6 +111,18 @@ public interface PropostaService {
      * @return a proposta nova; vazio se a proposta não estava enviada e vencida
      */
     Optional<Proposta> vencer(Long propostaId);
+
+    /**
+     * O cliente recebeu a proposta e pediu mudança, como um desconto maior (RF11): a proposta enviada
+     * fica RENEGOCIADA, o projeto volta de AGUARDANDO_RESPOSTA para ORCANDO (transição 4) e nasce a
+     * versão seguinte em EM_ELABORACAO, com as mesmas horas, o mesmo desconto e os mesmos preços
+     * congelados. A aprovação da diretoria segue junto e cai se o desconto mudar.
+     *
+     * @return a proposta nova
+     * @throws br.edu.iftm.irrigacao.dominio.RegraNegocioException se a proposta não está enviada ou
+     *                                                             já venceu
+     */
+    Proposta renegociar(Long propostaId);
 
     /**
      * {@code alertarVencimento()} da Figura 9: propostas ENVIADA dos projetos do usuário que vencem

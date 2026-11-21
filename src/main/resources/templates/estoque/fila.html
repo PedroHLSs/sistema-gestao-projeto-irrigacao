@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!-- O trabalho do almoxarifado em três filas, como a fila da engenharia (RF14, RF19) -->
+<head th:replace="~{fragments/head :: head('Fila do estoque')}">
+</head>
+
+<body>
+    <header th:replace="~{fragments/header :: header}"></header>
+
+    <main class="container py-4">
+        <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
+
+        <h1 class="page-title">Fila do estoque</h1>
+
+        <!-- Proposta aprovada (G4): o material está reservado e falta separar e liberar a execução -->
+        <section class="mb-4" aria-labelledby="filaSeparar">
+            <h2 class="h5" id="filaSeparar">
+                Separação a fazer
+                <span class="badge text-bg-secondary ms-1" th:text="${#lists.size(fila.aSeparar)}">0</span>
+            </h2>
+            <p class="form-text mt-0">Proposta aprovada e material reservado. Separe o que já está no estoque e
+                libere a execução: a obra pode começar com um item separado.</p>
+            <p th:if="${#lists.isEmpty(fila.aSeparar)}" class="text-muted">Nenhum projeto esperando a separação.</p>
+            <ul th:unless="${#lists.isEmpty(fila.aSeparar)}" class="list-group shadow-sm">
+                <li th:each="s : ${fila.aSeparar}" th:with="p=${s.projeto}"
+                    class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                        · <span th:text="${p.propriedade.produtor.nome}">Produtor</span>
+                        <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda</div>
+                        <div class="small text-muted mt-1"
+                            th:text="|${s.progresso.completos} de ${s.progresso.total} itens separados por completo|">
+                            1 de 2 itens separados por completo</div>
+                        <div class="progress fila-andamento mt-1" role="progressbar" aria-label="Itens separados por completo"
+                            aria-valuemin="0" aria-valuemax="100" th:attr="aria-valuenow=${s.progresso.percentual}">
+                            <div class="progress-bar bg-success" th:style="|width: ${s.progresso.percentual}%|"></div>
+                        </div>
+                    </div>
+                    <a th:href="@{/estoque/projetos/{id}/separacao(id=${p.id})}" class="btn btn-sm btn-primary text-nowrap">
+                        <i class="fas fa-dolly me-1"></i>Abrir a separação
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Separação parcial (G5): a obra começou e o restante do material é separado durante a instalação -->
+        <section class="mb-4" aria-labelledby="filaContinuar">
+            <h2 class="h5" id="filaContinuar">
+                Separação a continuar
+                <span class="badge text-bg-secondary ms-1" th:text="${#lists.size(fila.aContinuar)}">0</span>
+            </h2>
+            <p class="form-text mt-0">A execução já foi liberada com parte do material. Separe o restante: cada
+                separação sai do estoque na hora.</p>
+            <p th:if="${#lists.isEmpty(fila.aContinuar)}" class="text-muted">Nenhuma obra com material por separar.</p>
+            <ul th:unless="${#lists.isEmpty(fila.aContinuar)}" class="list-group shadow-sm">
+                <li th:each="s : ${fila.aContinuar}" th:with="p=${s.projeto}"
+                    class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                        · <span th:text="${p.propriedade.produtor.nome}">Produtor</span>
+                        <span th:replace="~{fragments/situacao :: badge(${p.situacao})}"></span>
+                        <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda</div>
+                        <div class="small text-muted mt-1"
+                            th:text="|${s.progresso.completos} de ${s.progresso.total} itens separados por completo|">
+                            1 de 2 itens separados por completo</div>
+                        <div class="progress fila-andamento mt-1" role="progressbar" aria-label="Itens separados por completo"
+                            aria-valuemin="0" aria-valuemax="100" th:attr="aria-valuenow=${s.progresso.percentual}">
+                            <div class="progress-bar bg-success" th:style="|width: ${s.progresso.percentual}%|"></div>
+                        </div>
+                    </div>
+                    <a th:href="@{/estoque/projetos/{id}/separacao(id=${p.id})}" class="btn btn-sm btn-primary text-nowrap">
+                        <i class="fas fa-dolly me-1"></i>Abrir a separação
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- G8: aceite colhido, o que voltou da obra entra de novo no estoque -->
+        <section class="mb-4" aria-labelledby="filaSobras">
+            <h2 class="h5" id="filaSobras">
+                Sobras a receber
+                <span class="badge text-bg-secondary ms-1" th:text="${#lists.size(fila.sobrasAReceber)}">0</span>
+            </h2>
+            <p class="form-text mt-0">Aceite colhido. Confira o que voltou da obra e devolva ao estoque; o financeiro
+                só libera o faturamento depois disso.</p>
+            <p th:if="${#lists.isEmpty(fila.sobrasAReceber)}" class="text-muted">Nenhum projeto esperando as sobras.</p>
+            <ul th:unless="${#lists.isEmpty(fila.sobrasAReceber)}" class="list-group shadow-sm">
+                <li th:each="p : ${fila.sobrasAReceber}"
+                    class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <a th:href="@{/projetos/{id}(id=${p.id})}" class="fw-semibold" th:text="${p.codigo}">PRJ-2026-0001</a>
+                        · <span th:text="${p.propriedade.produtor.nome}">Produtor</span>
+                        <div class="small text-muted" th:text="|${p.propriedade.nome}, ${p.propriedade.municipio}|">Fazenda</div>
+                    </div>
+                    <!-- Ver as sobras o comprador também vê; devolver, só o almoxarife -->
+                    <a sec:authorize="hasAnyAuthority('ALMOXARIFE', 'ADMINISTRADOR')"
+                        th:href="@{/estoque/projetos/{id}/sobras(id=${p.id})}" class="btn btn-sm btn-primary text-nowrap">
+                        <i class="fas fa-box-open me-1"></i>Devolver sobras
+                    </a>
+                </li>
+            </ul>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+</body>
+
+</html>

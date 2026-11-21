@@ -9,6 +9,7 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4" th:with="projeto=${proposta.projeto}">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, |Proposta ${proposta.numero}|)}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2 page-title">
@@ -16,8 +17,7 @@
             <span th:replace="~{fragments/situacao :: badgeProposta(${proposta.situacao})}"></span>
         </div>
         <p class="mb-3">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
             · <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda</span>
         </p>
 
@@ -91,6 +91,10 @@
                         <button type="submit" class="btn btn-outline-primary w-100">Recalcular</button>
                     </div>
                     <div class="col-12 form-text">
+                        <th:block th:if="${estimativa != null}">
+                            Horas sugeridas pela área irrigada:
+                            <span th:text="|${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(estimativa.areaIrrigadaHa)} ha × ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(estimativa.horasPorHectare)} h/ha = ${T(br.edu.iftm.irrigacao.dominio.estoque.Quantidade).formatar(estimativa.horas)} h|">12,5 ha × 60 h/ha = 750 h</span>.
+                        </th:block>
                         Mudar o desconto desfaz a aprovação da diretoria. Os preços dos itens continuam os da geração.
                     </div>
                 </form>
@@ -116,18 +120,27 @@
             </a>
         </div>
 
-        <!-- Resposta do cliente (G3) -->
+        <!-- Resposta do cliente (G3) e renegociação (RF11) -->
         <div th:if="${proposta.situacao.name() == 'ENVIADA'}" class="card shadow-sm mb-3">
             <div class="card-body">
                 <h2 class="h5">Resposta do cliente</h2>
                 <div class="row g-3">
-                    <div class="col-12 col-md-5">
+                    <div class="col-12 col-md-5 d-grid gap-2 align-content-start">
                         <form th:action="@{/comercial/propostas/{id}/aprovacao-cliente(id=${proposta.id})}" method="post"
                             data-confirmar="Registrar a aprovação do cliente? O projeto vai para Preparando material e o estoque disponível é reservado.">
                             <button type="submit" class="btn btn-success w-100" th:disabled="${vencida}">
                                 <i class="fas fa-circle-check me-2"></i>Cliente aprovou
                             </button>
                         </form>
+                        <form th:action="@{/comercial/propostas/{id}/renegociacao(id=${proposta.id})}" method="post"
+                            th:attr="data-confirmar=|Reabrir para renegociar? A proposta ${proposta.numero} deixa de valer e a ${proposta.numero + 1} é criada em elaboração, com os mesmos preços, para você ajustar o desconto e enviar de novo.|">
+                            <button type="submit" class="btn btn-outline-primary w-100" th:disabled="${vencida}">
+                                <i class="fas fa-handshake me-2"></i>Cliente pediu mudança
+                            </button>
+                        </form>
+                        <p class="form-text mb-0">
+                            Use "Cliente pediu mudança" quando o cliente pedir desconto ou outro ajuste antes de decidir.
+                        </p>
                     </div>
                     <div class="col-12 col-md-7">
                         <form th:action="@{/comercial/propostas/{id}/recusa(id=${proposta.id})}" method="post"
@@ -143,7 +156,7 @@
             </div>
         </div>
 
-        <a th:href="@{/comercial/propostas}" class="btn btn-outline-secondary">Voltar às propostas</a>
+        <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="btn btn-outline-secondary">Voltar ao projeto</a>
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}"></th:block>

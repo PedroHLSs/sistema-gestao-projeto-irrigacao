@@ -310,15 +310,16 @@ abstract class ProcessoSistemaBase {
                 "quantidades[" + item(projetoId, materialId).getId() + "]", quantidade);
     }
 
-    protected void conferirSeparacao(Long projetoId) throws Exception {
-        postar(ALMOXARIFE, "/estoque/projetos/" + projetoId + "/separacao/conferencia");
+    /** G5: libera a execução com o que já foi separado (pelo menos um item). */
+    protected void liberarExecucao(Long projetoId) throws Exception {
+        postar(ALMOXARIFE, "/estoque/projetos/" + projetoId + "/separacao/liberacao");
     }
 
-    /** Separa exatamente o previsto e confere: o projeto termina em PROGRAMANDO_EXECUCAO. */
+    /** Separa exatamente o previsto e libera a execução: o projeto termina em PROGRAMANDO_EXECUCAO. */
     protected Long projetoSeparado(Long materialId, String quantidade) throws Exception {
         Long projetoId = projetoAprovado(materialId, quantidade);
         separar(projetoId, materialId, quantidade);
-        conferirSeparacao(projetoId);
+        liberarExecucao(projetoId);
         return projetoId;
     }
 

@@ -29,8 +29,9 @@ import jakarta.validation.constraints.NotNull;
  *
  * <p>Os parâmetros hidráulicos ({@code pressaoProjetoMca}, {@code vazaoProjetoM3h}) são
  * informados pelo projetista (RF05); o sistema não os calcula. {@code toleranciaPercentual} é a
- * margem aceita na comparação com a medição (RF17). {@code separacaoConferida} (RF14),
- * {@code sobrasDevolvidas} (RF19), {@code dataLiberacaoFaturamento} (RF20),
+ * margem aceita na comparação com a medição (RF17). {@code separacaoConferida} (RF14) marca que
+ * o almoxarifado liberou o material para a execução, com pelo menos um item separado; o restante
+ * continua sendo separado durante a instalação. {@code sobrasDevolvidas} (RF19), {@code dataLiberacaoFaturamento} (RF20),
  * {@code dataInicioGarantia} e {@code prazoGarantiaMeses} (RF21) marcam as etapas finais.
  * {@code custoOrcado} é o custo previsto, usado no orçado x realizado (RF22).
  *

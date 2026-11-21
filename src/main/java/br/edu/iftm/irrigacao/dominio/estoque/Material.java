@@ -143,4 +143,12 @@ public class Material extends EntidadeAuditada {
     public void setSaldoReservado(BigDecimal saldoReservado) {
         this.saldoReservado = saldoReservado;
     }
+
+    /**
+     * Saldo menos reservado: o que ainda pode ser reservado para um projeto (RF07). Calculado, sem
+     * coluna; o mapeamento é pelos campos, então o Hibernate não o vê.
+     */
+    public BigDecimal getDisponivel() {
+        return saldo.subtract(saldoReservado);
+    }
 }

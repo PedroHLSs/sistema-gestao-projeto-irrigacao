@@ -9,6 +9,7 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-4">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, 'Programação da execução')}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <div class="d-flex flex-wrap align-items-center gap-2 mb-1 page-title">
@@ -16,8 +17,7 @@
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </div>
         <p class="mb-4">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span>
             · <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span>
         </p>
 
@@ -25,7 +25,11 @@
             <div class="col-12 col-lg-6">
                 <section th:if="${podeEmitir}" class="card shadow-sm">
                     <div class="card-body">
-                        <h2 class="h5">Nova ordem de serviço</h2>
+                        <h2 class="h5" th:text="${emExecucao} ? 'Outra ordem de serviço' : 'Nova ordem de serviço'">Nova ordem de serviço</h2>
+                        <p th:if="${emExecucao}" class="form-text">
+                            A instalação já está em andamento. Emita outra ordem para uma equipe ou etapa a mais: a
+                            medição só começa quando todas as ordens concluírem a instalação.
+                        </p>
                         <p th:if="${#lists.isEmpty(tecnicos)}" class="alert alert-warning">
                             Não há usuário ativo com perfil Técnico de campo. Cadastre um antes de programar a execução.
                         </p>
@@ -54,7 +58,7 @@
                     </div>
                 </section>
                 <p th:unless="${podeEmitir}" class="alert alert-secondary">
-                    A ordem de serviço é emitida com o projeto em "Programando execução".
+                    A ordem de serviço é emitida com o projeto em "Programando execução" ou "Executando instalação".
                 </p>
             </div>
 
@@ -65,7 +69,7 @@
                     <li th:each="o : ${ordens}" class="list-group-item">
                         <div class="fw-semibold" th:text="|OS ${o.numero} · ${#temporals.format(o.dataProgramada, 'dd/MM/yyyy')}|">OS 1 · 16/11/2026</div>
                         <div class="small" th:text="${#strings.listJoin(o.tecnicos.![nome], ', ')}">Técnicos</div>
-                        <div class="small text-muted" th:text="${o.dataConclusao != null} ? |Concluída em ${#temporals.format(o.dataConclusao, 'dd/MM/yyyy')}| : 'Aberta'">Aberta</div>
+                        <div class="small text-muted" th:replace="~{fragments/execucao :: estadoDaOrdem(${o})}">Aberta</div>
                     </li>
                 </ul>
             </div>

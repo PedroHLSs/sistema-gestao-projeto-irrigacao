@@ -46,14 +46,13 @@
                 </div>
 
                 <!--
-                    Um item por área do sistema, visível para os perfis que o SecurityConfig libera
-                    no prefixo de URL da área (RNF04). O ADMINISTRADOR vê todos. Cada grupo só aparece
-                    quando o perfil vê pelo menos um item dele.
-                    As áreas com href="#" ganham a rota quando as telas entrarem, nas próximas etapas.
+                    O grupo é a área da empresa e cada item tem o nome do título da página que abre, para o
+                    menu, os botões e o título da tela dizerem a mesma coisa. Cada item aparece para os perfis
+                    que o SecurityConfig libera no endereço dele (RNF04); o ADMINISTRADOR vê todos. Cada grupo
+                    só aparece quando o perfil vê pelo menos um item dele.
                 -->
                 <div class="app-sidebar-corpo">
                     <div class="app-menu-grupo">
-                        <p class="app-menu-secao">Painel</p>
                         <ul class="app-menu">
                             <li>
                                 <a class="app-menu-link" th:href="@{/}"><i class="bi bi-house"></i>Início</a>
@@ -62,37 +61,61 @@
                                 <a class="app-menu-link" th:href="@{/projetos}"><i class="bi bi-diagram-3"></i>Projetos</a>
                                 <ul class="app-submenu">
                                     <li>
-                                        <a class="app-menu-link" th:href="@{/projetos/agenda}"><i class="bi bi-calendar-week"></i>Agenda</a>
+                                        <a class="app-menu-link" th:href="@{/projetos/agenda}"><i class="bi bi-calendar-week"></i>Agenda de visitas</a>
                                     </li>
                                 </ul>
                             </li>
                         </ul>
                     </div>
 
-                    <div class="app-menu-grupo"
-                        sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'PROJETISTA', 'ALMOXARIFE', 'COMPRADOR', 'TECNICO_CAMPO', 'ADMINISTRADOR')">
-                        <p class="app-menu-secao">Operação</p>
+                    <div class="app-menu-grupo" sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
+                        <p class="app-menu-secao">Comercial</p>
                         <ul class="app-menu">
-                            <li sec:authorize="hasAnyAuthority('VENDEDOR', 'DIRETORIA', 'ADMINISTRADOR')">
-                                <a class="app-menu-link" th:href="@{/comercial/produtores}"><i class="bi bi-briefcase"></i>Comercial</a>
-                                <ul class="app-submenu">
-                                    <!-- O aviso é o alertarVencimento() da Figura 9: propostas enviadas do usuário perto de vencer -->
-                                    <li>
-                                        <a class="app-menu-link" th:href="@{/comercial/propostas}"><i class="bi bi-file-earmark-text"></i>Propostas<span
-                                                th:if="${propostasVencendo != null and propostasVencendo > 0}"
-                                                class="badge rounded-pill text-bg-warning app-menu-aviso" th:text="${propostasVencendo}"
-                                                th:title="|${propostasVencendo} proposta(s) enviada(s) perto de vencer|">2</span></a>
-                                    </li>
-                                </ul>
+                            <li>
+                                <a class="app-menu-link" th:href="@{/comercial/produtores}"><i class="bi bi-person-vcard"></i>Produtores</a>
                             </li>
-                            <li sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
-                                <a class="app-menu-link" href="#"><i class="bi bi-vector-pen"></i>Engenharia</a>
+                            <!-- O aviso é o alertarVencimento() da Figura 9: propostas enviadas do usuário perto de vencer -->
+                            <li>
+                                <a class="app-menu-link" th:href="@{/comercial/propostas}"><i class="bi bi-file-earmark-text"></i>Propostas<span
+                                        th:if="${propostasVencendo != null and propostasVencendo > 0}"
+                                        class="badge rounded-pill text-bg-warning app-menu-aviso" th:text="${propostasVencendo}"
+                                        th:title="|${propostasVencendo} proposta(s) enviada(s) perto de vencer|">2</span></a>
                             </li>
-                            <li sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')">
-                                <a class="app-menu-link" th:href="@{/estoque/materiais}"><i class="bi bi-box-seam"></i>Estoque</a>
+                        </ul>
+                    </div>
+
+                    <div class="app-menu-grupo" sec:authorize="hasAnyAuthority('PROJETISTA', 'ADMINISTRADOR')">
+                        <p class="app-menu-secao">Engenharia</p>
+                        <ul class="app-menu">
+                            <li>
+                                <a class="app-menu-link" th:href="@{/engenharia}"><i class="bi bi-vector-pen"></i>Fila da engenharia</a>
                             </li>
-                            <li sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')">
-                                <a class="app-menu-link" th:href="@{/campo/minhas-os}"><i class="bi bi-clipboard-check"></i>Campo</a>
+                        </ul>
+                    </div>
+
+                    <div class="app-menu-grupo" sec:authorize="hasAnyAuthority('ALMOXARIFE', 'COMPRADOR', 'ADMINISTRADOR')">
+                        <p class="app-menu-secao">Estoque</p>
+                        <ul class="app-menu">
+                            <li>
+                                <a class="app-menu-link" th:href="@{/estoque/fila}"><i class="bi bi-list-check"></i>Fila do estoque</a>
+                            </li>
+                            <li>
+                                <a class="app-menu-link" th:href="@{/estoque/materiais}"><i class="bi bi-box-seam"></i>Materiais</a>
+                            </li>
+                            <li>
+                                <a class="app-menu-link" th:href="@{/estoque/requisicoes}"><i class="bi bi-cart3"></i>Requisições de compra</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- O técnico vê só as ordens dele; o projetista acompanha as de todos (OrdemServicoController) -->
+                    <div class="app-menu-grupo" sec:authorize="hasAnyAuthority('TECNICO_CAMPO', 'PROJETISTA', 'ADMINISTRADOR')">
+                        <p class="app-menu-secao">Campo</p>
+                        <ul class="app-menu">
+                            <li>
+                                <a class="app-menu-link" th:href="@{/campo/minhas-os}"><i class="bi bi-clipboard-check"></i><th:block
+                                        sec:authorize="hasAuthority('TECNICO_CAMPO')">Minhas OS</th:block><th:block
+                                        sec:authorize="!hasAuthority('TECNICO_CAMPO')">Ordens de serviço</th:block></a>
                             </li>
                         </ul>
                     </div>
@@ -101,10 +124,10 @@
                         <p class="app-menu-secao">Gestão</p>
                         <ul class="app-menu">
                             <li>
-                                <a class="app-menu-link" th:href="@{/financeiro/liberacoes}"><i class="bi bi-cash-coin"></i>Financeiro</a>
+                                <a class="app-menu-link" th:href="@{/financeiro/liberacoes}"><i class="bi bi-cash-coin"></i>Liberação do faturamento</a>
                             </li>
                             <li sec:authorize="hasAnyAuthority('DIRETORIA', 'ADMINISTRADOR')">
-                                <a class="app-menu-link" th:href="@{/diretoria/aprovacoes}"><i class="bi bi-patch-check"></i>Diretoria</a>
+                                <a class="app-menu-link" th:href="@{/diretoria/aprovacoes}"><i class="bi bi-patch-check"></i>Aprovações de desconto</a>
                             </li>
                             <li>
                                 <a class="app-menu-link" th:href="@{/diretoria/orcado-realizado}"><i class="bi bi-bar-chart-line"></i>Orçado x realizado</a>

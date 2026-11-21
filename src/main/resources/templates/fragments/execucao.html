@@ -31,6 +31,16 @@
             </li>
         </ul>
     </th:block>
+
+    <!-- Estado de uma ordem de serviço (RF15, RF16), na programação e na página do projeto -->
+    <th:block th:fragment="estadoDaOrdem(o)">
+        <div th:if="${o.dataConclusao != null}" class="small text-muted"
+            th:text="|Concluída em ${#temporals.format(o.dataConclusao, 'dd/MM/yyyy')}|">Concluída em 16/11/2026</div>
+        <div th:if="${o.dataConclusao == null and o.instalacaoConcluidaEm != null}" class="small text-muted"
+            th:text="|Aberta, instalação concluída em ${#temporals.format(o.instalacaoConcluidaEm, 'dd/MM/yyyy')}|">
+            Aberta, instalação concluída</div>
+        <div th:if="${o.dataConclusao == null and o.instalacaoConcluidaEm == null}" class="small text-muted">Aberta</div>
+    </th:block>
 </body>
 
 </html>

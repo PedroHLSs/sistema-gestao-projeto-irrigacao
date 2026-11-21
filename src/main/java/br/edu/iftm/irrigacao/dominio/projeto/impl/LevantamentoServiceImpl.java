@@ -7,10 +7,13 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.function.Function;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +62,16 @@ public class LevantamentoServiceImpl implements LevantamentoService {
     @Transactional(readOnly = true)
     public Optional<Levantamento> buscarPorProjeto(Long projetoId) {
         return levantamentoRepository.findByProjetoId(projetoId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, Levantamento> buscarPorProjetos(Collection<Long> projetoIds) {
+        if (projetoIds.isEmpty()) {
+            return Map.of();
+        }
+        return levantamentoRepository.listarDosProjetos(projetoIds).stream()
+                .collect(Collectors.toMap(levantamento -> levantamento.getProjeto().getId(), Function.identity()));
     }
 
     @Override

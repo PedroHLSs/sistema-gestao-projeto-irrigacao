@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <!--
     Ordem de serviço em campo (RF15 a RF18, RNF06). Só aparece o passo da situação do projeto
@@ -13,6 +13,7 @@
     <header th:replace="~{fragments/header :: header}"></header>
 
     <main class="container py-3 tela-campo">
+        <nav th:replace="~{fragments/trilha :: projeto(${projeto}, |OS ${ordem.numero}|)}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
@@ -20,8 +21,7 @@
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </div>
         <p class="mb-3">
-            <a th:href="@{/projetos/{id}(id=${projeto.id})}" class="fw-semibold" th:text="${projeto.codigo}">PRJ-2026-0001</a>
-            · <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span><br>
+            <span th:text="${projeto.propriedade.produtor.nome}">Produtor</span><br>
             <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span><br>
             <i class="fas fa-calendar-day me-1"></i><span th:text="${#temporals.format(ordem.dataProgramada, 'dd/MM/yyyy')}">16/11/2026</span>
             · <span th:text="${#strings.listJoin(ordem.tecnicos.![nome], ', ')}">Técnicos</span>
@@ -100,12 +100,29 @@
             </section>
 
             <form th:action="@{/campo/ordens/{id}/conclusao(id=${ordem.id})}" method="post" class="d-grid mb-4"
-                data-confirmar="Concluir a instalação? Depois disso vem a medição de pressão e vazão.">
+                data-confirmar="Concluir a instalação desta OS? Os lançamentos dela fecham e, quando todas as OS do projeto concluírem, vem a medição de pressão e vazão.">
                 <button type="submit" class="btn btn-success btn-lg">
                     <i class="fas fa-flag-checkered me-2"></i>Concluir instalação
                 </button>
             </form>
         </th:block>
+
+        <!-- ========== Esta OS terminou; outras equipes ainda instalam (RF16) ========== -->
+        <section th:if="${aguardandoOutras}" class="card shadow-sm mb-3 border-secondary">
+            <div class="card-body">
+                <h2 class="h5">Instalação desta OS concluída</h2>
+                <p class="mb-2">
+                    Concluída em <span th:text="${#temporals.format(ordem.instalacaoConcluidaEm, 'dd/MM/yyyy HH:mm')}">16/11/2026 17:00</span>.
+                    A medição de pressão e vazão começa quando estas OS também concluírem:
+                </p>
+                <ul class="mb-0">
+                    <li th:each="f : ${faltando}">
+                        <span class="fw-semibold" th:text="|OS ${f.numero}|">OS 2</span>
+                        · <span th:text="${#strings.listJoin(f.tecnicos.![nome], ', ')}">Técnico</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
 
         <!-- ========== Medição (RF17, G6) ========== -->
         <section th:if="${validando}" class="card shadow-sm mb-3">
@@ -295,8 +312,10 @@
             <th:block th:replace="~{fragments/execucao :: medicoes(${medicoes}, ${projeto.id})}"></th:block>
         </section>
 
+        <!-- O mesmo nome da lista no menu: "Minhas OS" para o técnico, "Ordens de serviço" para quem acompanha -->
         <a th:href="@{/campo/minhas-os}" class="btn btn-outline-secondary w-100 mb-3">
-            <i class="fas fa-arrow-left me-2"></i>Minhas OS
+            <i class="fas fa-arrow-left me-2"></i><th:block sec:authorize="hasAuthority('TECNICO_CAMPO')">Minhas OS</th:block><th:block
+                sec:authorize="!hasAuthority('TECNICO_CAMPO')">Ordens de serviço</th:block>
         </a>
     </main>
 
