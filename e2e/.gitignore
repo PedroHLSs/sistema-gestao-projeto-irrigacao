@@ -1,0 +1,10 @@
+# Prints e relatório gerados a cada execução
+evidencias/
+relatorio.html
+
+# Ambiente virtual do Python
+venv/
+.venv/
+
+__pycache__/
+.pytest_cache/

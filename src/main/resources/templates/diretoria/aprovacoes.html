@@ -19,7 +19,7 @@
 
         <p th:if="${#lists.isEmpty(pendentes)}" class="alert alert-success">Nenhum desconto esperando aprovação.</p>
 
-        <section th:each="p : ${pendentes}" class="card shadow-sm mb-3">
+        <section th:each="p : ${pendentes}" class="card shadow-sm mb-3" th:attr="data-testid=|aprovacao-${p.id}|">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
                     <div>

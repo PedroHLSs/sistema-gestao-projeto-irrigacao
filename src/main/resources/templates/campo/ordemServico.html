@@ -41,7 +41,7 @@
                         <div class="input-group input-group-lg has-validation">
                             <input type="number" step="0.01" min="0" inputmode="decimal" class="form-control"
                                 th:field="*{horas}" th:errorclass="is-invalid" placeholder="8">
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Apontar</button>
+                            <button type="submit" class="btn btn-primary" data-testid="apontar-horas"><i class="fas fa-plus me-1"></i>Apontar</button>
                             <div class="invalid-feedback" th:errors="*{horas}">Erro das horas</div>
                         </div>
                     </form>
@@ -68,7 +68,7 @@
                         <div class="input-group input-group-lg has-validation">
                             <input type="number" step="any" min="0" inputmode="decimal" class="form-control"
                                 th:field="*{quantidade}" th:errorclass="is-invalid">
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Apontar</button>
+                            <button type="submit" class="btn btn-primary" data-testid="apontar-material"><i class="fas fa-plus me-1"></i>Apontar</button>
                             <div class="invalid-feedback" th:errors="*{quantidade}">Erro da quantidade</div>
                         </div>
                     </form>

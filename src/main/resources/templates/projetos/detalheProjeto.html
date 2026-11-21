@@ -12,8 +12,8 @@
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
         <!-- Cabeçalho do projeto -->
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-3 page-title">
-            <h1 class="h2 mb-0 me-2" th:text="${projeto.codigo}">PRJ-2026-0001</h1>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3 page-title" data-testid="cabecalho-projeto">
+            <h1 class="h2 mb-0 me-2" th:text="${projeto.codigo}" data-testid="codigo-projeto">PRJ-2026-0001</h1>
             <span th:replace="~{fragments/situacao :: badge(${projeto.situacao})}"></span>
         </div>
 
@@ -654,8 +654,8 @@
             <!-- Linha do tempo: mudanças de situação e registros de cada etapa (RF21) -->
             <div class="col-12 col-xl-3">
                 <h2 class="h5">Linha do tempo</h2>
-                <ol class="linha-tempo">
-                    <li th:each="e : ${linhaDoTempo}">
+                <ol class="linha-tempo" data-testid="linha-do-tempo">
+                    <li th:each="e : ${linhaDoTempo}" data-testid="evento-linha-tempo">
                         <div class="small text-muted" th:text="${#temporals.format(e.dataHora, 'dd/MM/yyyy HH:mm')}">
                             16/11/2026 09:00</div>
                         <div th:if="${e.titulo != null}" class="fw-semibold" th:text="${e.titulo}">Medição dentro do parâmetro</div>

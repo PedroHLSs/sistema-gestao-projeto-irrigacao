@@ -18,7 +18,7 @@
             <span class="text-muted" th:text="|${projeto.propriedade.nome}, ${projeto.propriedade.municipio}|">Fazenda, Município</span>
         </p>
 
-        <div th:if="${!#lists.isEmpty(faltantes)}" class="alert alert-warning" role="status">
+        <div th:if="${!#lists.isEmpty(faltantes)}" class="alert alert-warning" role="status" data-testid="levantamento-faltantes">
             <div class="fw-semibold mb-1">Para enviar, falta:</div>
             <ul class="mb-0 ps-3">
                 <li th:each="item : ${faltantes}" th:text="${item}">cultura</li>

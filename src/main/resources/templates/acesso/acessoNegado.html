@@ -9,7 +9,7 @@
 
     <main class="container py-5 text-center">
         <p class="error-status">403</p>
-        <h1 class="h3">Acesso negado</h1>
+        <h1 class="h3" data-testid="acesso-negado">Acesso negado</h1>
         <p class="lead text-muted">
             O seu perfil não tem permissão para acessar esta página.
             <span th:if="${usuarioAtual != null}">

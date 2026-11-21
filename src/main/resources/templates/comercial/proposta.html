@@ -12,7 +12,7 @@
         <nav th:replace="~{fragments/trilha :: projeto(${projeto}, |Proposta ${proposta.numero}|)}"></nav>
         <th:block th:replace="~{fragments/mensagens :: mensagens}"></th:block>
 
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 page-title">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 page-title" data-testid="cabecalho-proposta">
             <h1 class="h2 mb-0 me-2" th:text="|Proposta ${proposta.numero}|">Proposta 1</h1>
             <span th:replace="~{fragments/situacao :: badgeProposta(${proposta.situacao})}"></span>
         </div>
